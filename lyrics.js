@@ -196,6 +196,6 @@ async function main(){
     //a.move(context)
 
 }
-
+console.log("Running")
 var promise=main()
 
