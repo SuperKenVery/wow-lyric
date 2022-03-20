@@ -196,6 +196,15 @@ async function main(){
     //a.move(context)
 
 }
+
+async function main2(){
+    var a=await Text("hi",500)
+    var b=blur(a,10)
+    var canvas=document.getElementById("lyric")
+    var context=canvas.getContext('2d')
+
+    context.putImageData(b,0,0)
+}
 console.log("Running")
-var promise=main()
+var promise=main2()
 
