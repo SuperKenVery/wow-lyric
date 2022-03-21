@@ -55,14 +55,15 @@ blurProgramResource={
         attribute vec2 a_textureCoordinate;
 
         uniform vec2 u_resolution;
+	uniform int r;
 
         varying vec2 v_textureCoordinate;
         void main(){
             gl_Position=vec4(a_position,0,1);
 
             //For fragment shader
-            vec2 pixelSpace=a_textureCoordinate*(u_resolution+20.0);
-            vec2 targetPixelSpace=pixelSpace+vec2(-10.0,-10.0);
+            vec2 pixelSpace=a_textureCoordinate*(u_resolution+float(2*r));
+            vec2 targetPixelSpace=pixelSpace+vec2(float(-r),float(-r));
             v_textureCoordinate=targetPixelSpace/u_resolution; //pass to fragment shader
         }
         `,
@@ -72,12 +73,10 @@ blurProgramResource={
 
         uniform sampler2D u_image;
         uniform vec2 u_textureSize;
-        //uniform float matrix[21*21];//Max gaussium blur radius is 10
-	//this uses 21*21uniforms, and ios would complain about it. Use texture. 
 	uniform sampler2D matrix;//Must be (2*r+1)x(2*r+1), type LUMINANCE
         uniform float matrix_sum;//Used after adding up the sum. Devide it.
-        uniform int r; //radius
-
+	uniform int r;
+	
         varying vec2 v_textureCoordinate;
 
         void main(){
@@ -85,8 +84,8 @@ blurProgramResource={
 	    vec2 onePlace=vec2(1,1)/vec2(2*r+1,2*r+1);//a place of matrix
             vec4 pixelSum=vec4(0,0,0,0);
             //Blur here!
-            for(int matrix_x=-10;matrix_x<=10;matrix_x++){
-                for(int matrix_y=-10;matrix_y<=10;matrix_y++){
+            for(int matrix_x=-r;matrix_x<=r;matrix_x++){
+                for(int matrix_y=-r;matrix_y<=r;matrix_y++){
 		    float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y)).r;
 		    vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,matrix_y));
                     pixelSum+=pixel*(weight/matrix_sum);
@@ -95,8 +94,7 @@ blurProgramResource={
                 }
             }
 
-            vec4 pixel=texture2D(u_image,v_textureCoordinate);
-            gl_FragColor=vec4(30,0,100,0);
+            gl_FragColor=pixelSum;
         }
         `,
     gaussiumMatrixCache:{},
@@ -179,7 +177,7 @@ blurProgramResource={
 
 
         var imageBuffer=gl.createTexture()
-	gl.bindTexture(gl.TEXTURE2D,imageBuffer)
+	gl.bindTexture(gl.TEXTURE_2D,imageBuffer)
         //enable image of any size
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
