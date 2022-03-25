@@ -64,12 +64,14 @@ blurProgramResource={
             //For fragment shader
             vec2 pixelSpace=a_textureCoordinate*(u_resolution+float(2*r));
             vec2 targetPixelSpace=pixelSpace+vec2(float(-r),float(-r));
-            v_textureCoordinate=targetPixelSpace/u_resolution; //pass to fragment shader
+            //v_textureCoordinate=targetPixelSpace/u_resolution; //pass to fragment shader
+	    v_textureCoordinate=a_textureCoordinate;
         }
         `,
     //fragment shader
     fragment_shader_source:`
         precision mediump float;
+	precision highp int;
 
         uniform sampler2D u_image;
         uniform vec2 u_textureSize;
@@ -84,9 +86,9 @@ blurProgramResource={
 	    vec2 onePlace=vec2(1,1)/vec2(2*r+1,2*r+1);//a place of matrix
             vec4 pixelSum=vec4(0,0,0,0);
             //Blur here!
-            for(int matrix_x=-r;matrix_x<=r;matrix_x++){
-                for(int matrix_y=-r;matrix_y<=r;matrix_y++){
-		    float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y)).r;
+            for(int matrix_x=-10;matrix_x<=10;matrix_x++){
+                for(int matrix_y=-10;matrix_y<=10;matrix_y++){
+		    float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y))[0];
 		    vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,matrix_y));
                     pixelSum+=pixel*(weight/matrix_sum);
 		    //we can't pass float but only int in texture
@@ -94,7 +96,9 @@ blurProgramResource={
                 }
             }
 
-            gl_FragColor=pixelSum;
+            //gl_FragColor=pixelSum;
+	    gl_FragColor=texture2D(matrix,v_textureCoordinate);
+
         }
         `,
     gaussiumMatrixCache:{},
@@ -144,7 +148,7 @@ blurProgramResource={
         }else{
             gaussiumWeight=new Uint8Array((2*radius+1)**2)
             gaussiumWeightSum=0
-            let p=0.5,
+            let p=0,
                 r=radius,
                 rr=r**2,
                 A=1-p**2,
@@ -154,11 +158,12 @@ blurProgramResource={
             for(var x=-r;x<=r;x++){
                 for(var y=-r;y<=r;y++){
                     t=C*(x**2+y**2-p*x*y)/rr
-                    f=B*Math.exp(t)*255 //0~1 -> 0~255
-                    gaussiumWeight[(x+r)*(2*r+1)+(y+r)]=f
+                    f=B*Math.exp(t)
+                    gaussiumWeight[(x+r)*(2*r+1)+(y+r)]=f*255*50 //will be devided by 255 in texture2d(?)
                     gaussiumWeightSum+=f
                 }
             }
+		console.log("weight sum is ",gaussiumWeightSum,"radius is ", radius)
             this.gaussiumMatrixCache[radius]={
                 gaussiumWeight:gaussiumWeight,
                 gaussiumWeightSum:gaussiumWeightSum,
@@ -169,11 +174,13 @@ blurProgramResource={
 
 	var matrixBuffer=gl.createTexture()
 	gl.bindTexture(gl.TEXTURE_2D,matrixBuffer)
+	gl.pixelStorei(gl.UNPACK_ALIGNMENT,1)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)
         gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,2*radius+1,2*radius+1,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,gaussiumWeight)
+	    console.log("weights ",gaussiumWeight)
 
 
         var imageBuffer=gl.createTexture()
@@ -400,7 +407,8 @@ function createEnvironment(){
     blurProgramResource.prepare(gl)
     resizeProgramResource.prepare(gl)
 
-    gl.clearColor(0, 0, 0, 1)//黑色，透明
+    gl.clearColor(255, 0, 0, 1)//黑色，透明
+	//应该1是不透明吧
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     return {
@@ -409,11 +417,15 @@ function createEnvironment(){
 }
 
 
-var environment=null
+var environment=createEnvironment()
 
 function blur(imagedata,radius){
     if(environment==null){
         environment=createEnvironment()
+    }
+    if(radius>10){
+	console.log("Radius too big. Max is 10. ")
+	return null
     }
     let gl=environment.gl
 
@@ -425,7 +437,6 @@ function blur(imagedata,radius){
         count=4
     gl.drawArrays(primitiveType, offset, count)
 console.log("Done drawing")
-	console.log(gl.canvas.width)
     return getImageData(gl)
 
 }

@@ -199,7 +199,7 @@ async function main(){
 
 async function main2(){
     var a=await Text("hi",500)
-    var b=blur(a,10)
+    var b=blur(a,5)
     var canvas=document.getElementById("lyric")
     var context=canvas.getContext('2d')
 
