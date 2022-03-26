@@ -199,11 +199,17 @@ async function main(){
 
 async function main2(){
     var a=await Text("hi",500)
-    var b=blur(a,5)
-    var canvas=document.getElementById("lyric")
-    var context=canvas.getContext('2d')
-
-    context.putImageData(b,0,0)
+    try{
+	var b=blur(a,5)
+	var canvas=document.getElementById("lyric")
+        var context=canvas.getContext('2d')
+        context.putImageData(b,0,0)
+    }catch(e){
+	var errplace=document.getElementById("err")
+	var err="Error:"+String(e)+"\n"+String(e.stack)
+	console.log(err)
+	errplace.innerHTML=err
+    }
 }
 console.log("Running")
 var promise=main2()

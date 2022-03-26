@@ -48,6 +48,7 @@ function getImageData(gl){
     return imagedata
 }
 
+let maxR=10
 blurProgramResource={
     //vector shader
     vertex_shader_source:`
@@ -75,19 +76,18 @@ blurProgramResource={
 
         uniform sampler2D u_image;
         uniform vec2 u_textureSize;
-	uniform sampler2D matrix;//Must be (2*r+1)x(2*r+1), type LUMINANCE
-        uniform float matrix_sum;//Used after adding up the sum. Devide it.
-	uniform int r;
+	uniform sampler2D matrix;//Must be (2*maxR+1)x(2*maxR+1), type LUMINANCE
+        uniform float matrix_sum;//Used after adding up the sum. Devide by it.
 	
         varying vec2 v_textureCoordinate;
 
         void main(){
             vec2 onePixel=vec2(1,1)/u_textureSize;//a pixel of image
-	    vec2 onePlace=vec2(1,1)/vec2(2*r+1,2*r+1);//a place of matrix
+	    vec2 onePlace=vec2(1,1)/vec2(2*${maxR}+1,2*${maxR}+1);//a place of matrix
             vec4 pixelSum=vec4(0,0,0,0);
             //Blur here!
-            for(int matrix_x=-10;matrix_x<=10;matrix_x++){
-                for(int matrix_y=-10;matrix_y<=10;matrix_y++){
+            for(int matrix_x=-${maxR};matrix_x<=${maxR};matrix_x++){
+                for(int matrix_y=-${maxR};matrix_y<=${maxR};matrix_y++){
 		    float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y))[0];
 		    vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,matrix_y));
                     pixelSum+=pixel*(weight/matrix_sum);
@@ -97,7 +97,7 @@ blurProgramResource={
             }
 
             //gl_FragColor=pixelSum;
-	    gl_FragColor=texture2D(matrix,v_textureCoordinate);
+	    gl_FragColor=texture2D(matrix,v_textureCoordinate)/matrix_sum;
 
         }
         `,
@@ -146,10 +146,11 @@ blurProgramResource={
             gaussiumWeight=this.gaussiumMatrixCache[radius].gaussiumWeight
             gaussiumWeightSum=this.gaussiumMatrixCache[radius].gaussiumWeightSum
         }else{
-            gaussiumWeight=new Uint8Array((2*radius+1)**2)
+            gaussiumWeight=new Float32Array((2*maxR+1)**2)
             gaussiumWeightSum=0
             let p=0,
                 r=radius,
+		mr=maxR,
                 rr=r**2,
                 A=1-p**2,
                 B=1/(2*Math.PI*rr*A**0.5),
@@ -159,10 +160,17 @@ blurProgramResource={
                 for(var y=-r;y<=r;y++){
                     t=C*(x**2+y**2-p*x*y)/rr
                     f=B*Math.exp(t)
-                    gaussiumWeight[(x+r)*(2*r+1)+(y+r)]=f*255*50 //will be devided by 255 in texture2d(?)
+                    gaussiumWeight[(x+mr)*(2*mr+1)+(y+mr)]=f*255 //will be devided by 255 in texture2d(?)
                     gaussiumWeightSum+=f
                 }
             }
+            var max_val=gaussiumWeight[mr*(2*mr+1)+mr]
+	    var multiply=255/max_val
+	    for(var i=0;i<gaussiumWeight.length;i++){
+		gaussiumWeight[i]*=multiply
+	    }
+	    gaussiumWeightSum*=multiply
+	    gaussiumWeight=new Uint8Array(gaussiumWeight)
 		console.log("weight sum is ",gaussiumWeightSum,"radius is ", radius)
             this.gaussiumMatrixCache[radius]={
                 gaussiumWeight:gaussiumWeight,
@@ -423,8 +431,8 @@ function blur(imagedata,radius){
     if(environment==null){
         environment=createEnvironment()
     }
-    if(radius>10){
-	console.log("Radius too big. Max is 10. ")
+    if(radius>maxR){
+	console.log(`Radius too big. Max is ${maxR}. `)
 	return null
     }
     let gl=environment.gl
