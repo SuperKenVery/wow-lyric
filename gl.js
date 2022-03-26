@@ -48,7 +48,7 @@ function getImageData(gl){
     return imagedata
 }
 
-let maxR=10
+let maxR=25
 blurProgramResource={
     //vector shader
     vertex_shader_source:`
@@ -97,7 +97,9 @@ blurProgramResource={
             }
 
             //gl_FragColor=pixelSum;
-	    gl_FragColor=texture2D(matrix,v_textureCoordinate)/matrix_sum;
+	    //gl_FragColor=texture2D(matrix,v_textureCoordinate)/matrix_sum;
+	    gl_FragColor=pixelSum;
+	    //gl_FragColor=texture2D(u_image,v_textureCoordinate);
 
         }
         `,
@@ -187,7 +189,7 @@ blurProgramResource={
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)
-        gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,2*radius+1,2*radius+1,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,gaussiumWeight)
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,2*maxR+1,2*maxR+1,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,gaussiumWeight)
 	    console.log("weights ",gaussiumWeight)
 
 

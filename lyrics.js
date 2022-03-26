@@ -13,6 +13,7 @@ async function Text(text,fontsize){
 
     ctx.textBaseline='top'
     ctx.font="700 "+String(fontsize)+"px Arial"
+    ctx.fillStyle="white"
     ctx.fillText(text, 0, 8)
     var imagedata=ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
     return imagedata
@@ -198,10 +199,11 @@ async function main(){
 }
 
 async function main2(){
-    var a=await Text("hi",500)
+    var a=await Text("hi! Matrix is passed as a texture! ",100)
     try{
-	var b=blur(a,5)
+	var b=blur(a,25)
 	var canvas=document.getElementById("lyric")
+	canvas.width=b.width
         var context=canvas.getContext('2d')
         context.putImageData(b,0,0)
     }catch(e){
