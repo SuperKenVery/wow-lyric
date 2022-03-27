@@ -199,13 +199,14 @@ async function main(){
 }
 
 async function main2(){
-    var a=await Text("hi! Matrix is passed as a texture! ",100)
+    var a=await Text("还在为我的梦加油",75)
     try{
-	var b=blur(a,25)
 	var canvas=document.getElementById("lyric")
-	canvas.width=b.width
         var context=canvas.getContext('2d')
-        context.putImageData(b,0,0)
+	context.putImageData(a,0,0)
+	for(var i=1;i<=5;i++){
+	    context.putImageData(blur(a,2*i),0,100*(i))
+	}
     }catch(e){
 	var errplace=document.getElementById("err")
 	var err="Error:"+String(e)+"\n"+String(e.stack)

@@ -417,8 +417,8 @@ function createEnvironment(){
     blurProgramResource.prepare(gl)
     resizeProgramResource.prepare(gl)
 
-    gl.clearColor(255, 0, 0, 1)//黑色，透明
-	//应该1是不透明吧
+    gl.clearColor(0, 0, 0, 0)//黑色，透明
+	//1是不透明
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     return {
@@ -438,6 +438,8 @@ function blur(imagedata,radius){
 	return null
     }
     let gl=environment.gl
+    gl.canvas.width=imagedata.width+2*radius+1
+    gl.canvas.height=imagedata.height+2*radius+1
 
     blurProgramResource.createBuffers(environment.gl,imagedata,radius)
     gl.useProgram(blurProgramResource.program)
@@ -446,7 +448,6 @@ function blur(imagedata,radius){
         offset=0,
         count=4
     gl.drawArrays(primitiveType, offset, count)
-console.log("Done drawing")
     return getImageData(gl)
 
 }
