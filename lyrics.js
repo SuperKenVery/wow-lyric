@@ -1,5 +1,5 @@
 console.log("lyrics.js")
-async function Text(text,fontsize){
+function Text(text,fontsize){
     var tmp_canvas=document.createElement('canvas')
     //var tmp_canvas=document.getElementById('tmp')
     var ctx=tmp_canvas.getContext('2d')
@@ -30,7 +30,7 @@ class LyricLine {
     async create_cache(){
         let max_font_size=56,min_font_size=40,lines=10
         this.cache=[]
-        this.cache[0]=await Text(this.content,max_font_size)
+        this.cache[0]=Text(this.content,max_font_size)
         for(var line_index=1;line_index<=lines;line_index++){
             var blurred=blur(this.cache[0],line_index/lines*10)
             this.cache[line_index]=blurred
@@ -199,7 +199,7 @@ async function main(){
 }
 
 async function main2(){
-    var a=await Text("还在为我的梦加油",75)
+    var a=Text("还在为我的梦加油",75)
     try{
 	var canvas=document.getElementById("lyric")
         var context=canvas.getContext('2d')
