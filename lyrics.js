@@ -19,115 +19,6 @@ function Text(text,fontsize){
     return imagedata
 }
 
-class LyricLine {
-    constructor(content,time){
-        this.content=content
-        this.lineIndex=0 //position on screen
-        this.offset=0 //used for animation
-        this.cache_progress=this.create_cache()
-        this.time=time
-    }
-    async create_cache(){
-        let max_font_size=56,min_font_size=40,lines=10
-        this.cache=[]
-        this.cache[0]=Text(this.content,max_font_size)
-        for(var line_index=1;line_index<=lines;line_index++){
-            var blurred=blur(this.cache[0],line_index/lines*10)
-            this.cache[line_index]=blurred
-        }
-
-    }
-    /*
-     * Put this line of lyric to a specific line. 
-     *
-     * line_index could be float (for animation) and is 0-based.
-     */
-    put(context){
-        let height=100,screenXMiddle=1920/2
-        var shrink=1-(this.lineIndex-this.offset)/50//1x~0.8x
-        var blurred=this.cache[Math.floor(this.lineIndex-this.offset)]
-        var resized=resize(blurred,blurred.width*shrink,blurred.height*shrink)
-        context.putImageData(resized,screenXMiddle-resized.width/2,height*(this.lineIndex-this.offset))
-    }
-}
-
-animation={
-    time_to_position:function(x){
-        /*
-         * Takes time, and outputs the position in the animation at that time. 
-         *
-         * 0<=x<=d, where d is animation duration
-         * 0<=f(x)<=h as LyricLine.put() takes line_index as input, so h=1. 
-         */
-        let d=300,h=1
-        if(x<=0){
-            return 0
-        }else if(x<=d/2){
-            return (2*(x/d)**2) * h
-        }else if(x<=d){
-            return (-2*(x/d-1)**2+1) * h
-        }else{//x>d
-            return h
-        }
-    }
-}
-
-class Lyrics{
-    constructor(content){
-        let linesCount=10
-        this.linesCount=linesCount
-        var validLines=content.split('\n\n')[1]
-        var lines=validLines.split('\n')
-        this.lyricLines=[]
-        for(var line_index=0;line_index<lines.length;line_index++){
-            var lyric_line_raw=lines[line_index],
-                [time_raw, lyric_line_content]=lyric_line_raw.split(']'),
-                time_string=time_raw.substring(1),
-                [minute_string,second_string]=time_string.split(':'),
-                [minute,second]=[Number(minute_string),Number(second_string)],
-                timeOffset=minute*60+second
-            this.lyricLines[line_index]=new LyricLine(lyric_line_content,timeOffset)
-        }
-
-        this.topLineIndex=0
-    }
-    put(context){
-        /* Put all lyric lines according to LyricLine.line_index
-         */
-        for(var lyric_index=0;lyric_index<this.lyricLines.length;lyric_index++){
-            let line=this.lyricLines[lyric_index]
-            if(line.line_index<-1) continue //skip lines above screen
-            line.put(context)
-            if(line.line_index>this.linesCount) break //skip lines below screen
-        }
-    }
-    move(context){
-        var animation_function=function(timestamp){
-            if(animation_function.starttime==undefined) animation_function.starttime=timestamp
-            let elapsed=timestamp-animation_function.starttime
-            let d=300 //duration for one line of lyric, ms
-            let delay=50 //delay between lines
-            if(elapsed>d+delay*(this.linesCount-1)){
-                this.put(context)
-                for(var lyric_index=0;lyric_index<this.linesCount;lyric_index++){
-                    let line=this.lyricLines[lyric_index]
-                    line.offset=0
-                    line.lineIndex--
-                }
-            }else{
-                for(var lyric_index=0;lyric_index<this.linesCount;lyric_index++){
-                    let line=this.lyricLines[lyric_index]
-                    line.offset=animation.time_to_position(elapsed - (lyric_index-this.topLineIndex)*delay)
-                }
-                this.put(context)
-                requestAnimationFrame(animation_function)
-            }
-        }
-        requestAnimationFrame(animation_function)
-    }
-}
-
-
 async function main(){
     var canvas=document.getElementById("lyric")
     var context=canvas.getContext('2d')
@@ -187,15 +78,13 @@ async function main(){
 [03:48.35]男:热情不改
 [03:50.34](你的)笑容勉强不来
 [03:53.62]爱深埋珊瑚海`
-    var a=new Lyrics(lyric_data)
-    for(var line_index=0;line_index<a.lyricLines.length;line_index++){
-        let line=a.lyricLines[line_index]
-        await line.cache_progress
+    try{
+	let player=new LyricPlayer(canvas,lyric_data)
+	player.play()
+    }catch(e){
+	var err="Error:"+String(e)+"\n"+String(e.stack)
+	console.log(err)
     }
-
-    a.put(context)
-    //a.move(context)
-
 }
 
 async function main2(){
@@ -215,5 +104,5 @@ async function main2(){
     }
 }
 console.log("Running")
-var promise=main2()
+var promise=main()
 

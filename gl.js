@@ -6,11 +6,6 @@
  * descript how to connect buffers, locations and
  * variables in shader sources well.
  */
-console.log("blur.js")
-
-
-
-
 function createShader(gl,type,source){
     var shader=gl.createShader(type)
     gl.shaderSource(shader,source)
@@ -173,7 +168,6 @@ blurProgramResource={
 	    }
 	    gaussiumWeightSum*=multiply
 	    gaussiumWeight=new Uint8Array(gaussiumWeight)
-		console.log("weight sum is ",gaussiumWeightSum,"radius is ", radius)
             this.gaussiumMatrixCache[radius]={
                 gaussiumWeight:gaussiumWeight,
                 gaussiumWeightSum:gaussiumWeightSum,
@@ -190,7 +184,6 @@ blurProgramResource={
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)
         gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,2*maxR+1,2*maxR+1,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,gaussiumWeight)
-	    console.log("weights ",gaussiumWeight)
 
 
         var imageBuffer=gl.createTexture()
@@ -436,6 +429,13 @@ function blur(imagedata,radius){
     if(radius>maxR){
 	console.log(`Radius too big. Max is ${maxR}. `)
 	return null
+    }else if(radius<0){
+	console.log("Radius is negative!")
+	return null
+    }else if(radius==0){
+	return imagedata
+	//TODO:Have no idea why r=0 returns blank image
+	//But we'll keep this for now
     }
     let gl=environment.gl
     gl.canvas.width=imagedata.width+2*radius+1
