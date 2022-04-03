@@ -22,6 +22,9 @@ function Text(text,fontsize){
 async function main(){
     var canvas=document.getElementById("lyric")
     var context=canvas.getContext('2d')
+    if(context==null){
+	console.log("Failed to get 2d context")
+    }
 
     var lyric_data=`[ti:珊瑚海]
 [ar:周杰伦/Lara]
@@ -30,11 +33,11 @@ async function main(){
 [offset:0]
 
 [00:00.00] 
-[00:1.85]周杰伦/Lara - 珊瑚海
-[00:4.20]男:海平面远方开始阴霾
-[00:6.66]悲伤要怎么平静纯白
-[00:7.81]我的脸上始终挟带
-[00:8.08]淹没浅浅的无奈
+[00:8.85]周杰伦/Lara - 珊瑚海
+[00:10.20]男:海平面远方开始阴霾`,more=`
+[00:13.66]悲伤要怎么平静纯白
+[00:16.81]我的脸上始终挟带
+[00:25.08]淹没浅浅的无奈
 [00:44.64]女:你用唇语说你要离开
 [00:50.11]男:心不在
 [00:51.95]合:她能不顾身般留下来
@@ -102,6 +105,39 @@ async function main2(){
 	console.log(err)
 	errplace.innerHTML=err
     }
+}
+
+async function main3(){
+    var canvas=document.getElementById("lyric")
+    var context=canvas.getContext('2d')
+    let u=5,g=10
+    let lines=[
+        new LyricLine(0,"a",0,100,u,g,canvas),
+	new LyricLine(1,"b",150,200,u,g,canvas),
+    ]
+    var springs=[]
+    for(var a=0;a<lines.length-1;a++){
+	springs.push(new FSSpring(lines[a],lines[a+1],150,u,g))
+    }
+    let starttime=(new Date()).getTime()
+    var lasttime=starttime
+    do{
+	let now=(new Date()).getTime()
+	let t=(now-starttime)/1000,
+	    dt=(now-lasttime)/1000
+	lasttime=now
+
+	for(var x=0;x<springs.length;x++){
+	    lines[x].move(dt)
+	    springs[x].move(dt)
+	}
+	lines[lines.length-1].move()
+
+	for(var l of lines){
+	    l.render()
+	}
+    }while(t<10)
+    console.log("done",lines,springs)
 }
 console.log("Running")
 var promise=main()
