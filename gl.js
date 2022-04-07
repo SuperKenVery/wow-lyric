@@ -51,7 +51,7 @@ blurProgramResource={
         attribute vec2 a_textureCoordinate;
 
         uniform vec2 u_resolution;
-	uniform int r;
+    uniform int r;
 
         varying vec2 v_textureCoordinate;
         void main(){
@@ -61,40 +61,40 @@ blurProgramResource={
             vec2 pixelSpace=a_textureCoordinate*(u_resolution+float(2*r));
             vec2 targetPixelSpace=pixelSpace+vec2(float(-r),float(-r));
             //v_textureCoordinate=targetPixelSpace/u_resolution; //pass to fragment shader
-	    v_textureCoordinate=a_textureCoordinate;
+        v_textureCoordinate=a_textureCoordinate;
         }
         `,
     //fragment shader
     fragment_shader_source:`
         precision mediump float;
-	precision highp int;
+    precision highp int;
 
         uniform sampler2D u_image;
         uniform vec2 u_textureSize;
-	uniform sampler2D matrix;//Must be (2*maxR+1)x(2*maxR+1), type LUMINANCE
+    uniform sampler2D matrix;//Must be (2*maxR+1)x(2*maxR+1), type LUMINANCE
         uniform float matrix_sum;//Used after adding up the sum. Devide by it.
-	
+
         varying vec2 v_textureCoordinate;
 
         void main(){
             vec2 onePixel=vec2(1,1)/u_textureSize;//a pixel of image
-	    vec2 onePlace=vec2(1,1)/vec2(2*${maxR}+1,2*${maxR}+1);//a place of matrix
+        vec2 onePlace=vec2(1,1)/vec2(2*${maxR}+1,2*${maxR}+1);//a place of matrix
             vec4 pixelSum=vec4(0,0,0,0);
             //Blur here!
             for(int matrix_x=-${maxR};matrix_x<=${maxR};matrix_x++){
                 for(int matrix_y=-${maxR};matrix_y<=${maxR};matrix_y++){
-		    float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y))[0];
-		    vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,matrix_y));
+            float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y))[0];
+            vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,matrix_y));
                     pixelSum+=pixel*(weight/matrix_sum);
-		    //we can't pass float but only int in texture
-		    //so devide in advance to prevent overflow
+            //we can't pass float but only int in texture
+            //so devide in advance to prevent overflow
                 }
             }
 
             //gl_FragColor=pixelSum;
-	    //gl_FragColor=texture2D(matrix,v_textureCoordinate)/matrix_sum;
-	    gl_FragColor=pixelSum;
-	    //gl_FragColor=texture2D(u_image,v_textureCoordinate);
+        //gl_FragColor=texture2D(matrix,v_textureCoordinate)/matrix_sum;
+        gl_FragColor=pixelSum;
+        //gl_FragColor=texture2D(u_image,v_textureCoordinate);
 
         }
         `,
@@ -116,7 +116,7 @@ blurProgramResource={
         gl.bufferData(
             gl.ARRAY_BUFFER,
             new Float32Array(positions),
-            gl.STATIC_DRAW
+            gl.DYNAMIC_DRAW
         )
         //===position buffer is now positions
 
@@ -132,7 +132,7 @@ blurProgramResource={
         gl.bufferData(
             gl.ARRAY_BUFFER,
             new Float32Array(coordinates),
-            gl.STATIC_DRAW
+            gl.DYNAMIC_DRAW
         )
         //===textureCoordinateBuffer is now coordinates
 
@@ -147,7 +147,7 @@ blurProgramResource={
             gaussiumWeightSum=0
             let p=0,
                 r=radius,
-		mr=maxR,
+                mr=maxR,
                 rr=r**2,
                 A=1-p**2,
                 B=1/(2*Math.PI*rr*A**0.5),
@@ -162,23 +162,23 @@ blurProgramResource={
                 }
             }
             var max_val=gaussiumWeight[mr*(2*mr+1)+mr]
-	    var multiply=255/max_val
-	    for(var i=0;i<gaussiumWeight.length;i++){
-		gaussiumWeight[i]*=multiply
-	    }
-	    gaussiumWeightSum*=multiply
-	    gaussiumWeight=new Uint8Array(gaussiumWeight)
+            var multiply=255/max_val
+            for(var i=0;i<gaussiumWeight.length;i++){
+                gaussiumWeight[i]*=multiply
+            }
+            gaussiumWeightSum*=multiply
+            gaussiumWeight=new Uint8Array(gaussiumWeight)
             this.gaussiumMatrixCache[radius]={
                 gaussiumWeight:gaussiumWeight,
                 gaussiumWeightSum:gaussiumWeightSum,
             }
         }
-        
 
 
-	var matrixBuffer=gl.createTexture()
-	gl.bindTexture(gl.TEXTURE_2D,matrixBuffer)
-	gl.pixelStorei(gl.UNPACK_ALIGNMENT,1)
+
+        var matrixBuffer=gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D,matrixBuffer)
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT,1)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
@@ -187,7 +187,7 @@ blurProgramResource={
 
 
         var imageBuffer=gl.createTexture()
-	gl.bindTexture(gl.TEXTURE_2D,imageBuffer)
+        gl.bindTexture(gl.TEXTURE_2D,imageBuffer)
         //enable image of any size
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
         gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
@@ -206,6 +206,12 @@ blurProgramResource={
             gaussiumSum: gaussiumWeightSum,
             image: imageBuffer,
         }
+    },
+    deleteBuffers:function(gl){
+        gl.deleteBuffer(this.buffers.positions)
+        gl.deleteBuffer(this.buffers.texCoords)
+        gl.deleteTexture(this.buffers.gaussiumMatrix)
+        gl.deleteTexture(this.buffers.image)
     },
     connect:function(gl,imagedata,radius){
         //Vertex Attrib vec2 a_position
@@ -242,10 +248,10 @@ blurProgramResource={
         gl.bindTexture(gl.TEXTURE_2D,this.buffers.image)
         gl.uniform1i(this.programInfo.uniformLocations.imageLocation,0)
 
-	//Uniform sampler2D matrix
-	gl.activeTexture(gl.TEXTURE1)
-	gl.bindTexture(gl.TEXTURE_2D,this.buffers.gaussiumMatrix)
-	gl.uniform1i(this.programInfo.uniformLocations.matrixLocation,1)
+        //Uniform sampler2D matrix
+        gl.activeTexture(gl.TEXTURE1)
+        gl.bindTexture(gl.TEXTURE_2D,this.buffers.gaussiumMatrix)
+        gl.uniform1i(this.programInfo.uniformLocations.matrixLocation,1)
         //Uniform vec2 u_textureSize
         gl.uniform2f(this.programInfo.uniformLocations.textureSizeLocation,gl.canvas.width,gl.canvas.height)
 
@@ -315,7 +321,7 @@ resizeProgramResource={
         gl.bufferData(
             gl.ARRAY_BUFFER,
             new Float32Array(a_positions),
-            gl.STATIC_DRAW
+            gl.DYNAMIC_DRAW
         )
 
         //Attrib vec2 a_textureCoordinate
@@ -330,7 +336,7 @@ resizeProgramResource={
         gl.bufferData(
             gl.ARRAY_BUFFER,
             new Float32Array(a_textureCoordinates),
-            gl.STATIC_DRAW
+            gl.DYNAMIC_DRAW
         )
 
         //Uniform sampler2D u_image's corresponding texture
@@ -348,6 +354,11 @@ resizeProgramResource={
             a_textureCoordinate_buffer:a_textureCoordinate_buffer,
             u_image_buffer:u_image_buffer,
         }
+    },
+    deleteBuffers:function(gl){
+        gl.deleteBuffer(this.buffers.a_position_buffer)
+        gl.deleteBuffer(this.buffers.a_textureCoordinate_buffer)
+        gl.deleteTexture(this.buffers.u_image_buffer)
     },
     connect:function(gl){
         //Attrib vec2 a_position
@@ -380,7 +391,7 @@ resizeProgramResource={
         gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D,this.buffers.u_image_buffer)
         gl.uniform1i(this.programInfo.uniformLocations.u_image_location,0)
-        
+
     },
     prepare:function(gl){
         this.program=createProgram(gl, this.vertex_shader_source, this.fragment_shader_source)
@@ -399,8 +410,8 @@ resizeProgramResource={
 }
 
 function createEnvironment(){
-    //var tmp_canvas=document.createElement('canvas')
-    var tmp_canvas=document.getElementById("tmp")
+    var tmp_canvas=document.createElement('canvas')
+    //var tmp_canvas=document.getElementById("tmp")
     var gl=tmp_canvas.getContext('webgl')
     if(!gl){
         console.log("Unable to get WebGL context. ")
@@ -411,7 +422,7 @@ function createEnvironment(){
     resizeProgramResource.prepare(gl)
 
     gl.clearColor(0, 0, 0, 0)//黑色，透明
-	//1是不透明
+    //1是不透明
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     return {
@@ -427,15 +438,15 @@ function blur(imagedata,radius){
         environment=createEnvironment()
     }
     if(radius>maxR){
-	console.log(`Radius too big. Max is ${maxR}. `)
-	return null
+        console.log(`Radius too big. Max is ${maxR}. `)
+        return null
     }else if(radius<0){
-	console.log("Radius is negative!")
-	return null
+        console.log("Radius is negative!")
+        return null
     }else if(radius==0){
-	return imagedata
-	//TODO:Have no idea why r=0 returns blank image
-	//But we'll keep this for now
+        return imagedata
+        //TODO:Have no idea why r=0 returns blank image
+        //But we'll keep this for now
     }
     let gl=environment.gl
     gl.canvas.width=imagedata.width+2*radius+1
@@ -448,6 +459,7 @@ function blur(imagedata,radius){
         offset=0,
         count=4
     gl.drawArrays(primitiveType, offset, count)
+    blurProgramResource.deleteBuffers(gl)
     return getImageData(gl)
 
 }
@@ -465,6 +477,7 @@ function resize(sourceImagedata,targetWidth,targetHeight){
         offset=0,
         count=4
     gl.drawArrays(primitiveType,offset,count)
+    resizeProgramResource.deleteBuffers(gl)
 
     return getImageData(gl)
 }

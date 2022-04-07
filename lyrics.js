@@ -34,7 +34,7 @@ async function main(){
 
 [00:00.00] 
 [00:8.85]周杰伦/Lara - 珊瑚海
-[00:10.20]男:海平面远方开始阴霾`,more=`
+[00:10.20]男:海平面远方开始阴霾
 [00:13.66]悲伤要怎么平静纯白
 [00:16.81]我的脸上始终挟带
 [00:25.08]淹没浅浅的无奈
@@ -81,30 +81,18 @@ async function main(){
 [03:48.35]男:热情不改
 [03:50.34](你的)笑容勉强不来
 [03:53.62]爱深埋珊瑚海`
-    try{
 	let player=new LyricPlayer(canvas,lyric_data)
 	player.play()
-    }catch(e){
-	var err="Error:"+String(e)+"\n"+String(e.stack)
-	console.log(err)
-    }
 }
 
 async function main2(){
     var a=Text("还在为我的梦加油",75)
-    try{
 	var canvas=document.getElementById("lyric")
         var context=canvas.getContext('2d')
 	context.putImageData(a,0,0)
 	for(var i=1;i<=5;i++){
 	    context.putImageData(blur(a,2*i),0,100*(i))
 	}
-    }catch(e){
-	var errplace=document.getElementById("err")
-	var err="Error:"+String(e)+"\n"+String(e.stack)
-	console.log(err)
-	errplace.innerHTML=err
-    }
 }
 
 async function main3(){
