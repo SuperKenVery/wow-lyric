@@ -1,3 +1,4 @@
+/* jshint esversion: 9 */
 /* Thanks a lot to webglfundamentals.org !!
  * It really helped he a lot in learning webgl.
  * It tells everything so clearly.
@@ -6,47 +7,47 @@
  * descript how to connect buffers, locations and
  * variables in shader sources well.
  */
-function createShader(gl,type,source){
-    var shader=gl.createShader(type)
-    gl.shaderSource(shader,source)
+function createShader(gl, type, source) {
+    let shader = gl.createShader(type)
+    gl.shaderSource(shader, source)
     gl.compileShader(shader)
-    if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
-        alert("Failed compiling shader: "+gl.getShaderInfoLog(shader)+"\n"+source)
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert("Failed compiling shader: " + gl.getShaderInfoLog(shader) + "\n" + source)
         gl.deleteShader(shader)
         return null
     }
     return shader
 }
 
-function createProgram(gl,vertexSource,fragmentSource){
-    var vertexShader=createShader(gl, gl.VERTEX_SHADER, vertexSource)
-    var fragmentShader=createShader(gl,gl.FRAGMENT_SHADER, fragmentSource)
+function createProgram(gl, vertexSource, fragmentSource) {
+    let vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource)
+    let fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
 
-    var shaderProgram=gl.createProgram()
-    gl.attachShader(shaderProgram,vertexShader)
-    gl.attachShader(shaderProgram,fragmentShader)
+    let shaderProgram = gl.createProgram()
+    gl.attachShader(shaderProgram, vertexShader)
+    gl.attachShader(shaderProgram, fragmentShader)
     gl.linkProgram(shaderProgram)
 
-    if(!gl.getProgramParameter(shaderProgram,gl.LINK_STATUS)){
-        alert("Failed to link shader program: "+gl.getProgramInfoLog(shaderProgram))
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        alert("Failed to link shader program: " + gl.getProgramInfoLog(shaderProgram))
         return null
     }
 
     return shaderProgram
 }
 
-function getImageData(gl){
-    var pixels=new Uint8Array(gl.canvas.width*gl.canvas.height*4)
-    gl.readPixels(0,0,gl.canvas.width,gl.canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels)
-    var clampedPixels=new Uint8ClampedArray(pixels)
-    var imagedata=new ImageData(clampedPixels,gl.canvas.width,gl.canvas.height)
+function getImageData(gl) {
+    let pixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4)
+    gl.readPixels(0, 0, gl.canvas.width, gl.canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    let clampedPixels = new Uint8ClampedArray(pixels)
+    let imagedata = new ImageData(clampedPixels, gl.canvas.width, gl.canvas.height)
     return imagedata
 }
 
-let maxR=25
-blurProgramResource={
+let maxR = 25
+blurProgramResource = {
     //vector shader
-    vertex_shader_source:`
+    vertex_shader_source: `
         attribute vec2 a_position;
         attribute vec2 a_textureCoordinate;
 
@@ -65,7 +66,7 @@ blurProgramResource={
         }
         `,
     //fragment shader
-    fragment_shader_source:`
+    fragment_shader_source: `
         precision mediump float;
     precision highp int;
 
@@ -98,20 +99,20 @@ blurProgramResource={
 
         }
         `,
-    gaussiumMatrixCache:{},
-    createBuffers:function(gl,imagedata,radius){
+    gaussiumMatrixCache: {},
+    createBuffers: function (gl, imagedata, radius) {
         //canvas size
-        gl.canvas.width=imagedata.width+2*radius
-        gl.canvas.height=imagedata.height+2*radius
-        gl.viewport(0,0,gl.canvas.width,gl.canvas.height)
+        gl.canvas.width = imagedata.width + 2 * radius
+        gl.canvas.height = imagedata.height + 2 * radius
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
         //===Positions===
-        var positionBuffer=gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer)
-        var positions=[
+        let positionBuffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+        let positions = [
             1.0, 1.0,
-            -1.0,1.0,
-            1.0,-1.0,
-            -1.0,-1.0,
+            -1.0, 1.0,
+            1.0, -1.0,
+            -1.0, -1.0,
         ]
         gl.bufferData(
             gl.ARRAY_BUFFER,
@@ -121,13 +122,13 @@ blurProgramResource={
         //===position buffer is now positions
 
         //===Texture coordinates===
-        var textureCoordinateBuffer=gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER,textureCoordinateBuffer)
-        var coordinates=[
+        let textureCoordinateBuffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordinateBuffer)
+        let coordinates = [
             1.0, 1.0,
-            0.0,1.0,
-            1.0,0.0,
-            0.0,0.0,
+            0.0, 1.0,
+            1.0, 0.0,
+            0.0, 0.0,
         ]
         gl.bufferData(
             gl.ARRAY_BUFFER,
@@ -138,68 +139,68 @@ blurProgramResource={
 
         //===Gaussium weight matrix===
         //Generate gaussium weight matrix
-        var gaussiumWeight=null,gaussiumWeightSum=0
-        if(this.gaussiumMatrixCache[radius]!=undefined){
-            gaussiumWeight=this.gaussiumMatrixCache[radius].gaussiumWeight
-            gaussiumWeightSum=this.gaussiumMatrixCache[radius].gaussiumWeightSum
-        }else{
-            gaussiumWeight=new Float32Array((2*maxR+1)**2)
-            gaussiumWeightSum=0
-            let p=0,
-                r=radius,
-                mr=maxR,
-                rr=r**2,
-                A=1-p**2,
-                B=1/(2*Math.PI*rr*A**0.5),
-                C=-1/(2*A)
-            var t=0,f=0
-            for(var x=-r;x<=r;x++){
-                for(var y=-r;y<=r;y++){
-                    t=C*(x**2+y**2-p*x*y)/rr
-                    f=B*Math.exp(t)
-                    gaussiumWeight[(x+mr)*(2*mr+1)+(y+mr)]=f*255 //will be devided by 255 in texture2d(?)
-                    gaussiumWeightSum+=f
+        let gaussiumWeight = null, gaussiumWeightSum = 0
+        if (this.gaussiumMatrixCache[radius] != undefined) {
+            gaussiumWeight = this.gaussiumMatrixCache[radius].gaussiumWeight
+            gaussiumWeightSum = this.gaussiumMatrixCache[radius].gaussiumWeightSum
+        } else {
+            gaussiumWeight = new Float32Array((2 * maxR + 1) ** 2)
+            gaussiumWeightSum = 0
+            let p = 0,
+                r = radius,
+                mr = maxR,
+                rr = r ** 2,
+                A = 1 - p ** 2,
+                B = 1 / (2 * Math.PI * rr * A ** 0.5),
+                C = -1 / (2 * A)
+            let t = 0, f = 0
+            for (let x = -r; x <= r; x++) {
+                for (let y = -r; y <= r; y++) {
+                    t = C * (x ** 2 + y ** 2 - p * x * y) / rr
+                    f = B * Math.exp(t)
+                    gaussiumWeight[(x + mr) * (2 * mr + 1) + (y + mr)] = f * 255 //will be devided by 255 in texture2d(?)
+                    gaussiumWeightSum += f
                 }
             }
-            var max_val=gaussiumWeight[mr*(2*mr+1)+mr]
-            var multiply=255/max_val
-            for(var i=0;i<gaussiumWeight.length;i++){
-                gaussiumWeight[i]*=multiply
+            let max_val = gaussiumWeight[mr * (2 * mr + 1) + mr]
+            let multiply = 255 / max_val
+            for (let i = 0; i < gaussiumWeight.length; i++) {
+                gaussiumWeight[i] *= multiply
             }
-            gaussiumWeightSum*=multiply
-            gaussiumWeight=new Uint8Array(gaussiumWeight)
-            this.gaussiumMatrixCache[radius]={
-                gaussiumWeight:gaussiumWeight,
-                gaussiumWeightSum:gaussiumWeightSum,
+            gaussiumWeightSum *= multiply
+            gaussiumWeight = new Uint8Array(gaussiumWeight)
+            this.gaussiumMatrixCache[radius] = {
+                gaussiumWeight: gaussiumWeight,
+                gaussiumWeightSum: gaussiumWeightSum,
             }
         }
 
 
 
-        var matrixBuffer=gl.createTexture()
-        gl.bindTexture(gl.TEXTURE_2D,matrixBuffer)
-        gl.pixelStorei(gl.UNPACK_ALIGNMENT,1)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)
-        gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,2*maxR+1,2*maxR+1,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,gaussiumWeight)
+        let matrixBuffer = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, matrixBuffer)
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 2 * maxR + 1, 2 * maxR + 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, gaussiumWeight)
 
 
-        var imageBuffer=gl.createTexture()
-        gl.bindTexture(gl.TEXTURE_2D,imageBuffer)
+        let imageBuffer = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, imageBuffer)
         //enable image of any size
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 
-        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,imagedata)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imagedata)
         //===imageBuffer is now image
 
         //===Gaussium weight sum===
         //Already calculated before
-        this.buffers={
+        this.buffers = {
             positions: positionBuffer,
             texCoords: textureCoordinateBuffer,
             gaussiumMatrix: matrixBuffer,
@@ -207,76 +208,80 @@ blurProgramResource={
             image: imageBuffer,
         }
     },
-    deleteBuffers:function(gl){
+    deleteBuffers: function (gl) {
         gl.deleteBuffer(this.buffers.positions)
         gl.deleteBuffer(this.buffers.texCoords)
         gl.deleteTexture(this.buffers.gaussiumMatrix)
         gl.deleteTexture(this.buffers.image)
     },
-    connect:function(gl,imagedata,radius){
+    connect: function (gl, imagedata, radius) {
         //Vertex Attrib vec2 a_position
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.buffers.positions)
-        var size=2,
-            type=gl.FLOAT,
-            normalize=false,
-            stride=0,
-            offset=0
-        gl.vertexAttribPointer(
-            this.programInfo.attribLocations.vertexLocation,
-            size,type,normalize,stride,offset
-        )
-        gl.enableVertexAttribArray(this.programInfo.attribLocations.vertexLocation)
+        {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.positions)
+            let size = 2,
+                type = gl.FLOAT,
+                normalize = false,
+                stride = 0,
+                offset = 0
+            gl.vertexAttribPointer(
+                this.programInfo.attribLocations.vertexLocation,
+                size, type, normalize, stride, offset
+            )
+            gl.enableVertexAttribArray(this.programInfo.attribLocations.vertexLocation)
+        }
 
         //Vertex Attrib vec2 a_textureCoordinate
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.buffers.texCoords)
-        var size=2,
-            type=gl.FLOAT,
-            normalize=false,
-            stride=0,
-            offset=0
-        gl.vertexAttribPointer(
-            this.programInfo.attribLocations.texCoordLocation,
-            size,type,normalize,stride,offset
-        )
-        gl.enableVertexAttribArray(this.programInfo.attribLocations.texCoordLocation)
+        {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.texCoords)
+            let size = 2,
+                type = gl.FLOAT,
+                normalize = false,
+                stride = 0,
+                offset = 0
+            gl.vertexAttribPointer(
+                this.programInfo.attribLocations.texCoordLocation,
+                size, type, normalize, stride, offset
+            )
+            gl.enableVertexAttribArray(this.programInfo.attribLocations.texCoordLocation)
+        }
 
         //Uniform vec2 u_resolution
-        gl.uniform2f(this.programInfo.uniformLocations.resolutionLocation,imagedata.width,imagedata.height)
+        gl.uniform2f(this.programInfo.uniformLocations.resolutionLocation, imagedata.width, imagedata.height)
 
         //Uniform sampler2D u_image
         gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D,this.buffers.image)
-        gl.uniform1i(this.programInfo.uniformLocations.imageLocation,0)
+        gl.bindTexture(gl.TEXTURE_2D, this.buffers.image)
+        gl.uniform1i(this.programInfo.uniformLocations.imageLocation, 0)
 
         //Uniform sampler2D matrix
         gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D,this.buffers.gaussiumMatrix)
-        gl.uniform1i(this.programInfo.uniformLocations.matrixLocation,1)
+        gl.bindTexture(gl.TEXTURE_2D, this.buffers.gaussiumMatrix)
+        gl.uniform1i(this.programInfo.uniformLocations.matrixLocation, 1)
         //Uniform vec2 u_textureSize
-        gl.uniform2f(this.programInfo.uniformLocations.textureSizeLocation,gl.canvas.width,gl.canvas.height)
+        gl.uniform2f(this.programInfo.uniformLocations.textureSizeLocation, gl.canvas.width, gl.canvas.height)
 
 
         //Uniform float matrix_sum
-        gl.uniform1f(this.programInfo.uniformLocations.matrixSumLocation,this.buffers.gaussiumSum)
+        gl.uniform1f(this.programInfo.uniformLocations.matrixSumLocation, this.buffers.gaussiumSum)
 
         //Uniform int r
-        gl.uniform1i(this.programInfo.uniformLocations.rLocation,radius)
+        gl.uniform1i(this.programInfo.uniformLocations.rLocation, radius)
     },
-    prepare:function(gl){
-        this.program=createProgram(gl, this.vertex_shader_source, this.fragment_shader_source)
+    prepare: function (gl) {
+        this.program = createProgram(gl, this.vertex_shader_source, this.fragment_shader_source)
         //Why doesn't location getting belong to connect(...)?
-        //Because getting location is considered slow, and should only be executed when initializing. 
-        this.programInfo={
+        //Because getting location is considered slow, and should only be executed when initializing.
+        this.programInfo = {
             program: blurProgramResource.program,
             attribLocations: {
-                vertexLocation: gl.getAttribLocation(this.program,'a_position'),
+                vertexLocation: gl.getAttribLocation(this.program, 'a_position'),
                 texCoordLocation: gl.getAttribLocation(this.program, 'a_textureCoordinate')
             },
             uniformLocations: {
                 imageLocation: gl.getUniformLocation(this.program, 'u_image'),
                 textureSizeLocation: gl.getUniformLocation(this.program, 'u_textureSize'),
-                resolutionLocation: gl.getUniformLocation(this.program,'u_resolution'),
-                matrixLocation: gl.getUniformLocation(this.program,'matrix'),
+                resolutionLocation: gl.getUniformLocation(this.program, 'u_resolution'),
+                matrixLocation: gl.getUniformLocation(this.program, 'matrix'),
                 matrixSumLocation: gl.getUniformLocation(this.program, 'matrix_sum'),
                 rLocation: gl.getUniformLocation(this.program, 'r'),
             }
@@ -284,8 +289,8 @@ blurProgramResource={
     }
 }
 
-resizeProgramResource={
-    vertex_shader_source:`
+resizeProgramResource = {
+    vertex_shader_source: `
         attribute vec2 a_position;
         attribute vec2 a_textureCoordinate;
 
@@ -295,7 +300,7 @@ resizeProgramResource={
             v_textureCoordinate=a_textureCoordinate;
         }
     `,
-    fragment_shader_source:`
+    fragment_shader_source: `
         precision mediump float;
         varying vec2 v_textureCoordinate;
 
@@ -304,19 +309,19 @@ resizeProgramResource={
             gl_FragColor=texture2D(u_image,v_textureCoordinate);
         }
     `,
-    createBuffers:function(gl,sourceImageData,targetWidth,targetHeight){
+    createBuffers: function (gl, sourceImageData, targetWidth, targetHeight) {
         //canvas size
-        gl.canvas.width=targetWidth
-        gl.canvas.height=targetHeight
-        gl.viewport(0,0,targetWidth,targetHeight)
+        gl.canvas.width = targetWidth
+        gl.canvas.height = targetHeight
+        gl.viewport(0, 0, targetWidth, targetHeight)
         //Attrib vec2 a_position
-        var a_position_buffer=gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER,a_position_buffer)
-        var a_positions=[
-            -1,-1,
-            -1,1,
-            1,-1,
-            1,1,
+        let a_position_buffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, a_position_buffer)
+        let a_positions = [
+            -1, -1,
+            -1, 1,
+            1, -1,
+            1, 1,
         ]
         gl.bufferData(
             gl.ARRAY_BUFFER,
@@ -325,13 +330,13 @@ resizeProgramResource={
         )
 
         //Attrib vec2 a_textureCoordinate
-        var a_textureCoordinate_buffer=gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER,a_textureCoordinate_buffer)
-        var a_textureCoordinates=[
-            0,0,
-            0,1,
-            1,0,
-            1,1,
+        let a_textureCoordinate_buffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, a_textureCoordinate_buffer)
+        let a_textureCoordinates = [
+            0, 0,
+            0, 1,
+            1, 0,
+            1, 1,
         ]
         gl.bufferData(
             gl.ARRAY_BUFFER,
@@ -340,80 +345,84 @@ resizeProgramResource={
         )
 
         //Uniform sampler2D u_image's corresponding texture
-        var u_image_buffer=gl.createTexture()
-        gl.bindTexture(gl.TEXTURE_2D,u_image_buffer)
+        let u_image_buffer = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, u_image_buffer)
 
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST)
-        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST)
-        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,sourceImageData)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceImageData)
 
-        this.buffers={
-            a_position_buffer:a_position_buffer,
-            a_textureCoordinate_buffer:a_textureCoordinate_buffer,
-            u_image_buffer:u_image_buffer,
+        this.buffers = {
+            a_position_buffer: a_position_buffer,
+            a_textureCoordinate_buffer: a_textureCoordinate_buffer,
+            u_image_buffer: u_image_buffer,
         }
     },
-    deleteBuffers:function(gl){
+    deleteBuffers: function (gl) {
         gl.deleteBuffer(this.buffers.a_position_buffer)
         gl.deleteBuffer(this.buffers.a_textureCoordinate_buffer)
         gl.deleteTexture(this.buffers.u_image_buffer)
     },
-    connect:function(gl){
+    connect: function (gl) {
         //Attrib vec2 a_position
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.buffers.a_position_buffer)
-        var size=2,
-            type=gl.FLOAT,
-            normalize=false,
-            stride=0,
-            offset=0
-        gl.vertexAttribPointer(
-            this.programInfo.attribLocations.a_position_location,
-            size,type,normalize,stride,offset
-        )
-        gl.enableVertexAttribArray(this.programInfo.attribLocations.a_position_location)
+        {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.a_position_buffer)
+            let size = 2,
+                type = gl.FLOAT,
+                normalize = false,
+                stride = 0,
+                offset = 0
+            gl.vertexAttribPointer(
+                this.programInfo.attribLocations.a_position_location,
+                size, type, normalize, stride, offset
+            )
+            gl.enableVertexAttribArray(this.programInfo.attribLocations.a_position_location)
+        }
 
         //Attrib vec2 a_textureCoordinate
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.buffers.a_textureCoordinate_buffer)
-        var size=2,
-            type=gl.FLOAT,
-            normalize=false,
-            stride=0,
-            offset=0
-        gl.vertexAttribPointer(
-            this.programInfo.attribLocations.a_textureCoordinate_location,
-            size,type,normalize,stride,offset
-        )
-        gl.enableVertexAttribArray(this.programInfo.attribLocations.a_textureCoordinate_location)
+        {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.a_textureCoordinate_buffer)
+            let size = 2,
+                type = gl.FLOAT,
+                normalize = false,
+                stride = 0,
+                offset = 0
+            gl.vertexAttribPointer(
+                this.programInfo.attribLocations.a_textureCoordinate_location,
+                size, type, normalize, stride, offset
+            )
+            gl.enableVertexAttribArray(this.programInfo.attribLocations.a_textureCoordinate_location)
+        }
 
         //Uniform sampler2D u_image
         gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D,this.buffers.u_image_buffer)
-        gl.uniform1i(this.programInfo.uniformLocations.u_image_location,0)
+        gl.bindTexture(gl.TEXTURE_2D, this.buffers.u_image_buffer)
+        gl.uniform1i(this.programInfo.uniformLocations.u_image_location, 0)
 
     },
-    prepare:function(gl){
-        this.program=createProgram(gl, this.vertex_shader_source, this.fragment_shader_source)
-        this.programInfo={
-            program:this.program,
-            attribLocations:{
-                a_position_location:gl.getAttribLocation(this.program,'a_position'),
-                a_textureCoordinate_location:gl.getAttribLocation(this.program,'a_textureCoordinate')
+    prepare: function (gl) {
+        this.program = createProgram(gl, this.vertex_shader_source, this.fragment_shader_source)
+        this.programInfo = {
+            program: this.program,
+            attribLocations: {
+                a_position_location: gl.getAttribLocation(this.program, 'a_position'),
+                a_textureCoordinate_location: gl.getAttribLocation(this.program, 'a_textureCoordinate')
             },
-            uniformLocations:{
-                u_image_location:gl.getUniformLocation(this.program,'u_image')
+            uniformLocations: {
+                u_image_location: gl.getUniformLocation(this.program, 'u_image')
             },
         }
     }
 
 }
 
-function createEnvironment(){
-    var tmp_canvas=document.createElement('canvas')
-    //var tmp_canvas=document.getElementById("tmp")
-    var gl=tmp_canvas.getContext('webgl')
-    if(!gl){
+function createEnvironment() {
+    let tmp_canvas = document.createElement('canvas')
+    //let tmp_canvas=document.getElementById("tmp")
+    let gl = tmp_canvas.getContext('webgl')
+    if (!gl) {
         console.log("Unable to get WebGL context. ")
         return null;
     }
@@ -426,57 +435,57 @@ function createEnvironment(){
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     return {
-        gl:gl,
+        gl: gl,
     }
 }
 
 
-var environment=createEnvironment()
+let environment = createEnvironment()
 
-function blur(imagedata,radius){
-    if(environment==null){
-        environment=createEnvironment()
+function blur(imagedata, radius) {
+    if (environment == null) {
+        environment = createEnvironment()
     }
-    if(radius>maxR){
+    if (radius > maxR) {
         console.log(`Radius too big. Max is ${maxR}. `)
         return null
-    }else if(radius<0){
+    } else if (radius < 0) {
         console.log("Radius is negative!")
         return null
-    }else if(radius==0){
+    } else if (radius == 0) {
         return imagedata
         //TODO:Have no idea why r=0 returns blank image
         //But we'll keep this for now
     }
-    let gl=environment.gl
-    gl.canvas.width=imagedata.width+2*radius+1
-    gl.canvas.height=imagedata.height+2*radius+1
+    let gl = environment.gl
+    gl.canvas.width = imagedata.width + 2 * radius + 1
+    gl.canvas.height = imagedata.height + 2 * radius + 1
 
-    blurProgramResource.createBuffers(environment.gl,imagedata,radius)
+    blurProgramResource.createBuffers(environment.gl, imagedata, radius)
     gl.useProgram(blurProgramResource.program)
-    blurProgramResource.connect(gl,imagedata,radius)
-    var primitiveType=gl.TRIANGLE_STRIP,
-        offset=0,
-        count=4
+    blurProgramResource.connect(gl, imagedata, radius)
+    let primitiveType = gl.TRIANGLE_STRIP,
+        offset = 0,
+        count = 4
     gl.drawArrays(primitiveType, offset, count)
     blurProgramResource.deleteBuffers(gl)
     return getImageData(gl)
 
 }
 
-function resize(sourceImagedata,targetWidth,targetHeight){
-    if(environment==null){
-        environment=createEnvironment()
+function resize(sourceImagedata, targetWidth, targetHeight) {
+    if (environment == null) {
+        environment = createEnvironment()
     }
-    let gl=environment.gl
+    let gl = environment.gl
 
-    resizeProgramResource.createBuffers(gl,sourceImagedata,targetWidth,targetHeight)
+    resizeProgramResource.createBuffers(gl, sourceImagedata, targetWidth, targetHeight)
     gl.useProgram(resizeProgramResource.program)
     resizeProgramResource.connect(gl)
-    var primitiveType=gl.TRIANGLE_STRIP,
-        offset=0,
-        count=4
-    gl.drawArrays(primitiveType,offset,count)
+    let primitiveType = gl.TRIANGLE_STRIP,
+        offset = 0,
+        count = 4
+    gl.drawArrays(primitiveType, offset, count)
     resizeProgramResource.deleteBuffers(gl)
 
     return getImageData(gl)

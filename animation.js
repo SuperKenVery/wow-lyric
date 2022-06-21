@@ -1,227 +1,164 @@
 /* jshint esversion: 9 */
-let debug=true
-class State{
-    constructor(value,prechange=[],postchange=[]){
-        this.prechange=prechange
-        this.postchange=postchange
-        this.value=value
-        if(debug){
-            let guard=function(w){
-                if(w==undefined||Math.abs(w)>100000||w!=w){
-                    //NaN!=NaN
-                    console.log(w)
-                    a.b.c()
-                }
-            }
-            //this.prechange.push(guard)
-        }
-    }
-    set(new_value){
-        if(new_value!=this.value){
-            for(var pre of this.prechange){
-                pre(new_value)
-            }
-            this.value=new_value
-            for(var post of this.postchange){
-                post()
-            }
-        }
-    }
+let debug = true
 
-}
+class LyricLine {
+    constructor(time, text = "Empty line", y, height, canvas, exittime) {
+        this.time = time
+        this.text = text
+        this.height = height
+        this.canvas = canvas
+        this.ctx = canvas.getContext("2d")
+        this.exittime = exittime
+        this.y = y
 
-class LyricLine{
-    constructor(time,text="Empty line",y,height,u=0.5,g=10,canvas,exittime){
-        this.time=time
-        this.text=text
-        this.height=height
-        this.u=u
-        this.g=g
-        this.canvas=canvas
-        this.ctx=canvas.getContext("2d")
-        this.exittime=exittime
+        this.renderedText = Text(text, height)
+        this.renderResult = this.renderedText
 
-        this.renderedText=Text(text,height)
-        this.renderResult=this.renderedText
+        this.blurCache = {}
+        this.animations = []
 
-        this.blurCache={}
+        /*For y, we take downwards as positive and upwards as negative.*/
 
-        /*For v and y, we take downwards as positive and upwards as negative.*/
-        this.v=new State(0)
-        this.y=new State(y)
 
         this.create_blurcache()
 
-        if(debug){
-            let ll=this
+        if (debug) {
+            let ll = this
         }
     }
-    move(t){
-        if(this.v.value<0){
-            this.v.set(Math.min(this.v.value+this.u*this.g*t,0))
-        }else if(this.v.value>0){
-            this.v.set(0)
-        }
-
-        this.y.set(this.y.value+this.v.value*t)
+    move(t, dt) {
+        this.animations.forEach(animation => {
+            animation(t, dt)
+        });
     }
-    render(){
-        if(this.y.value<this.canvas.height&&this.y.value>-this.renderResult.height){
-            let r = Math.trunc(Math.max(this.y.value, 0) / this.canvas.height * 10)
-            let blurred=this.blurCache[r]
-            let resize_to=1-this.y.value/this.canvas.height*0.5,
-                resized=resize(blurred,blurred.width*resize_to,blurred.height*resize_to)
-            let result=resized
-            this.ctx.putImageData(result,this.canvas.width/2-result.width/2,this.y.value)
-        }else{
-        }
-    }
-    create_blurcache(){
-        for(var i=0;i<10;i++){
-            this.blurCache[i]=blur(this.renderedText,i)
-        }
-    }
-}
-
-class FSSpring{
-    /* Fixed space spring
-    Anchor --(FSSpring)--- Object
-    1. This spring never pulls/pushes the anchor, only the object
-    2. The k of this spring is adjustable, according to objects's position and speed
-    3. This spring aims to keep a fixed space between two objects, while providing a fluent animation. It will gracefully pull the object to the desired position, without bouncing back and forth.
-    4. In many ways this is not a normal spring. We just call it this way, partly because apple has something called the "spring effect"(when introducing iPhone), whose spring is much like this spring.
-    */
-    constructor(anchor,object,l,u=0.5,g=10,enabled=true){
-        /* Create a Fixed space spring
-    anchor,object: explained before
-    l: The original length of the spring.
-       That is, the space to keep.
-    u: The coefficient of dynamic (动摩擦因数).Obviously the object won't stop going unless there is u.
-    g: The acceleration of gravity (重力加速度)
-    */
-        this.anchor=anchor
-        this.object=object
-        this.l=l
-        this.u=u
-        this.g=g
-        this.enabled=enabled
-        let fss=this
-        let update_k=function(){
-            if(fss.enabled){
-                //We assume the m of object is 1
-                let d=fss.object.y.value-fss.anchor.y.value
-                fss.k=2*fss.u*10/(d-fss.l)-fss.object.v.value**2/(d-fss.l)**2
-                if(d-fss.l<=5){
-                    //console.log("stopping",fss.object.text)
-                    fss.k=10
-                    fss.object.v.set(0)
-                    fss.object.y.set(fss.anchor.y.value+fss.l)
-                }
+    render() {
+        if (this.y < this.canvas.height && this.y > -this.renderResult.height) {
+            let r = function (y, H) {
+                let yy = Math.max(y, 0)
+                let ratio = yy / H
+                let res = ratio * 10
+                return Math.trunc(res)
             }
+            let blurred = this.blurCache[r(this.y, this.canvas.height)]
+            let size = function (y, h) {
+                let a = 0.01 * (y - 0.5 * h)
+                let b = -(a ** 2)
+                let c = 0.1 * 2 ** b
+                let d = 0.9 + c
+                return d
+            }
+            let resize_to = size(this.y, this.height),
+                resized = resize(blurred, blurred.width * resize_to, blurred.height * resize_to)
+            let result = resized
+            this.ctx.putImageData(result, this.canvas.width / 2 - result.width / 2, this.y)
         }
-        if(debug) this.updated=0
-        this.anchor.y.postchange.push(update_k)
-        update_k()
     }
-    move(t){
-        //t: time between last call and this call
-        if(this.enabled){
-            let distance=this.object.y.value-this.anchor.y.value,
-                a=this.k*(distance-this.l)
-
-            this.object.v.set(this.object.v.value-a*t)
+    create_blurcache() {
+        for (let i = 0; i <= 10; i++) {
+            this.blurCache[i] = blur(this.renderedText, i)
         }
-
-    }
-    render(){
-        //This thing is invisible
     }
 }
 
-class LyricPlayer{
-    constructor(canvas,lyrics_string,lyric_height=100,space=80,u=100,g=10){
+
+class LyricPlayer {
+    constructor(canvas, lyrics_string, lyric_height = 100, space = 80, u = 100, g = 10) {
         /*
     param space: The space between lines
     */
-        this.canvas=canvas
-        this.ctx=this.canvas.getContext("2d")
-        this.lyrics_string=lyrics_string
-        this.willplay_index=0
-        this.u=u
-        this.g=g
-        this.objects=[]
-        this.h=lyric_height
-        this.space=lyric_height+space
-        this.playing=false
+        this.canvas = canvas
+        this.ctx = this.canvas.getContext("2d")
+        this.lyrics_string = lyrics_string
+        this.willplay_index = 1
+        this.u = u
+        this.g = g
+        this.objects = []
+        this.h = lyric_height
+        this.space = lyric_height + space
+        this.playing = false
+        this.objects.push(new LyricLine(0, "", 0, this.h, this.canvas, 0))
         /*This space is different. It's the difference of y of each lyric line. */
-        let lines=lyrics_string.split("\n\n")[1].split("\n")
-        for(var line_index=0;line_index<lines.length;line_index++){
-            var lyric_line_raw=lines[line_index],
-                [time_raw, lyric_line_content]=lyric_line_raw.split(']'),
-                time_string=time_raw.substring(1),
-                [minute_string,second_string]=time_string.split(':'),
-                [minute,second]=[Number(minute_string),Number(second_string)],
-                time=minute*60+second
-            this.objects[line_index*2]=new LyricLine(time,lyric_line_content,this.space*line_index,this.h,this.u,this.g,this.canvas)
-            if(debug){
-                this.objects[line_index*2].index=line_index*2
-            }
-            if(line_index>=1){
-                this.objects[line_index*2-1]=new FSSpring(this.objects[line_index*2-2],this.objects[line_index*2],this.space,this.u,this.g)
-                if(debug){
-                    this.objects[line_index*2-1].index=line_index*2-1
-                }
-            }
+        let lines = lyrics_string.split("\n\n")[1].split("\n")
+        for (let line_index = 0; line_index < lines.length; line_index++) {
+            let lyric_line_raw = lines[line_index],
+                [time_raw, lyric_line_content] = lyric_line_raw.split(']'),
+                time_string = time_raw.substring(1),
+                [minute_string, second_string] = time_string.split(':'),
+                [minute, second] = [Number(minute_string), Number(second_string)],
+                time = minute * 60 + second
+            this.objects[line_index + 1] = new LyricLine(time, lyric_line_content, this.space * line_index+50, this.h, this.canvas, time)
         }
         //TODO: support exittime
+        //TODO: support multi-line lyrics (line height will vary, and this.space should vary)
     }
 
-    move(time){
-        //if(debug&&time>15) this.playing=false
-        //time: time since started playing, in seconds
-        let x=this.objects[this.willplay_index],
-            y=this.objects[this.willplay_index-1]
-        if(time>=x.time){
-            x.v.set(-((2*this.u*this.g*(x.y.value+this.space))**0.5))
-            if(this.willplay_index>=2) y.enabled=false
-            console.log("Turn for ",x.text,"set v as",x.v.value)
-            this.willplay_index+=2//Skip the spring
-        }else if(debug){
+    move(t, dt) {
+        //t: time since started playing, in seconds
+        let l = this.objects[this.willplay_index]
+        if (t >= l.time) {
+            console.log("turn for ", l)
+            let duration = 0.5, maxv = 2 * this.space / duration,
+                player = this, starttime = t
+            for (let i = this.willplay_index;
+                i < this.objects.length;
+                i++) {
+                let index = player.objects[i].animations.length,
+                    onScreenIndex = i - player.willplay_index
+                player.objects[i].animations.push(function (t, dt) {
+                    //dt: time since last frame ( or, last call of this function )
+                    let xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
+                    let v = function (x) {
+                        if (x <= duration / 2) return 2 * maxv * x / duration
+                        else return 2 * maxv * (duration - x) / duration
+                    }
+                    if (xt > 0 && xt <= duration) player.objects[i].y -= v(xt) * dt
+                    else if (xt > 0) {
+                        player.objects[i].animations.splice(index, 1)
+                    }
+                    //else if xt<=0: stay still
+                })
+            }
+            this.willplay_index++;
+            if (this.willplay_index >= this.objects.length) this.playing = false
         }
-        for(var i of this.objects){
-            i.move(time-this.lasttime)
+
+        for (let i = this.willplay_index - 1; i < this.objects.length; i++) {
+            this.objects[i].move(t, dt)
         }
-        this.lasttime=time
     }
 
-    render(){
-        this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height)
-        for(var i of this.objects) i.render()
+    render() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+        for (let i of this.objects) i.render()
     }
 
-    play(time=0){
+    play(time = 0) {
         /*
-    param time: start playing from where?
-    in seconds.
+        param time: start playing from where?
+        in seconds.
 
-    Internally, we use ms.
-    When passing things to move(), we use seconds, which can have decimal.
-    */
-        this.starttime=(new Date()).getTime()-time*1000
-        this.lasttime=0
-        let player=this
-        let move_wrapper=function(timestamp){
-            let ms=(new Date()).getTime()-player.starttime
-            let time=ms/1000
-                player.move(time)
-                player.render()
+        Internally, we use ms.
+        When passing things to move(), we use seconds, which can have decimal.
+        */
+        this.starttime = (new Date()).getTime() - time * 1000
+        this.lasttime = 0
+        let player = this
+        let move_wrapper = function (timestamp) {
+            let ms = (new Date()).getTime() - player.starttime,
+                t = ms / 1000,
+                dt = t - player.lasttime
+            player.lasttime = t
 
-            if(player.playing) window.requestAnimationFrame(move_wrapper)
+            player.move(t, dt)
+            player.render()
+
+            if (player.playing) window.requestAnimationFrame(move_wrapper)
         }
-        this.playing=true
+        this.playing = true
         window.requestAnimationFrame(move_wrapper)
     }
 
 }
+
 
 

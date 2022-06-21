@@ -1,5 +1,6 @@
 console.log("lyrics.js")
 function Text(text,fontsize){
+    if(text=="") text=" "
     var tmp_canvas=document.createElement('canvas')
     //var tmp_canvas=document.getElementById('tmp')
     var ctx=tmp_canvas.getContext('2d')
@@ -32,7 +33,7 @@ async function main(){
 匹配时间为: 04 分 24 秒 的歌曲
 [offset:0]
 
-[00:00.00] 
+[00:00.00]
 [00:8.85]周杰伦/Lara - 珊瑚海
 [00:10.20]男:海平面远方开始阴霾
 [00:13.66]悲伤要怎么平静纯白
