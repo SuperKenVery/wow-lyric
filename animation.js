@@ -1,3 +1,4 @@
+/* jshint esversion: 9 */
 let debug=true
 class State{
     constructor(value,prechange=[],postchange=[]){
@@ -43,9 +44,14 @@ class LyricLine{
         this.renderedText=Text(text,height)
         this.renderResult=this.renderedText
 
+        this.blurCache={}
+
         /*For v and y, we take downwards as positive and upwards as negative.*/
         this.v=new State(0)
         this.y=new State(y)
+
+        this.create_blurcache()
+
         if(debug){
             let ll=this
         }
@@ -61,12 +67,18 @@ class LyricLine{
     }
     render(){
         if(this.y.value<this.canvas.height&&this.y.value>-this.renderResult.height){
-            let blurred=blur(this.renderedText,Math.trunc(Math.max(this.y.value,0)/this.canvas.height*10))
+            let r = Math.trunc(Math.max(this.y.value, 0) / this.canvas.height * 10)
+            let blurred=this.blurCache[r]
             let resize_to=1-this.y.value/this.canvas.height*0.5,
                 resized=resize(blurred,blurred.width*resize_to,blurred.height*resize_to)
             let result=resized
             this.ctx.putImageData(result,this.canvas.width/2-result.width/2,this.y.value)
         }else{
+        }
+    }
+    create_blurcache(){
+        for(var i=0;i<10;i++){
+            this.blurCache[i]=blur(this.renderedText,i)
         }
     }
 }
@@ -76,15 +88,15 @@ class FSSpring{
     Anchor --(FSSpring)--- Object
     1. This spring never pulls/pushes the anchor, only the object
     2. The k of this spring is adjustable, according to objects's position and speed
-    3. This spring aims to keep a fixed space between two objects, while providing a fluent animation. It will gracefully pull the object to the desired position, without bouncing back and forth. 
-    4. In many ways this is not a normal spring. We just call it this way, partly because apple has something called the "spring effect"(when introducing iPhone), whose spring is much like this spring. 
+    3. This spring aims to keep a fixed space between two objects, while providing a fluent animation. It will gracefully pull the object to the desired position, without bouncing back and forth.
+    4. In many ways this is not a normal spring. We just call it this way, partly because apple has something called the "spring effect"(when introducing iPhone), whose spring is much like this spring.
     */
     constructor(anchor,object,l,u=0.5,g=10,enabled=true){
         /* Create a Fixed space spring
     anchor,object: explained before
     l: The original length of the spring.
-       That is, the space to keep. 
-    u: The coefficient of dynamic (动摩擦因数).Obviously the object won't stop going unless there is u. 
+       That is, the space to keep.
+    u: The coefficient of dynamic (动摩擦因数).Obviously the object won't stop going unless there is u.
     g: The acceleration of gravity (重力加速度)
     */
         this.anchor=anchor
@@ -190,10 +202,10 @@ class LyricPlayer{
     play(time=0){
         /*
     param time: start playing from where?
-    in seconds. 
+    in seconds.
 
-    Internally, we use ms. 
-    When passing things to move(), we use seconds, which can have decimal. 
+    Internally, we use ms.
+    When passing things to move(), we use seconds, which can have decimal.
     */
         this.starttime=(new Date()).getTime()-time*1000
         this.lasttime=0
