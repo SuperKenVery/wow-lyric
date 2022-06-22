@@ -1,13 +1,22 @@
 <!DOCTYPE HTML>
+
 <head>
     <meta charset="utf-8" />
 </head>
 
-<body style="background-color:black;">
-    <h1 style="color:white">Lyrics</h1>
-    <canvas id='lyric' width=3840 height=2160 style="position:absolute;height: 100%;width: 100%;margin:0;padding:0;" ></canvas>
-    <script type='text/javascript' src="gl.js"></script>
-    <script type='text/javascript' src="animation.js"></script>
-    <script type='text/javascript' src="lyrics.js"></script>
-</body>
+<body>
+    <h1>Lyrics</h1>
+    <p>Upload song file here</p>
+    <input type="file" id="songfile" />
+    <p>Upload lyric file here</p>
+    <input type="file" id="lyricfile">
+    <button onclick="main()">start</button>
+    <canvas id="lyric" width=3840 height=2160
+        style="position: fixed;width: 100vw;height: 100vh;left: 0;top: 0;z-index: -1;"></canvas>
+    <script type="text/javascript" src="gl.js"></script>
+    <script type="text/javascript" src="animation.js"></script>
+    <script type="text/javascript" src="lyrics.js"></script>
+    <script type="text/javascript" src="music.js"></script>
+    <audio id="song"></audio>
 
+</body>

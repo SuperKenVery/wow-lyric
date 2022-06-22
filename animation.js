@@ -2,7 +2,7 @@
 let debug = true
 
 class LyricLine {
-    constructor(time, text = "Empty line", y, height, canvas, exittime) {
+    constructor(time, text = "Empty line", y, height, canvas, exittime, curves) {
         this.time = time
         this.text = text
         this.height = height
@@ -10,12 +10,14 @@ class LyricLine {
         this.ctx = canvas.getContext("2d")
         this.exittime = exittime
         this.y = y
+        this.curves = curves
 
         this.renderedText = Text(text, height)
         this.renderResult = this.renderedText
 
         this.blurCache = {}
         this.animations = []
+        this.targetMove = 0
 
         /*For y, we take downwards as positive and upwards as negative.*/
 
@@ -33,24 +35,10 @@ class LyricLine {
     }
     render() {
         if (this.y < this.canvas.height && this.y > -this.renderResult.height) {
-            let r = function (y, H) {
-                let yy = Math.max(y, 0)
-                let ratio = yy / H
-                let res = ratio * 10
-                return Math.trunc(res)
-            }
-            let blurred = this.blurCache[r(this.y, this.canvas.height)]
-            let size = function (y, h) {
-                let a = 0.01 * (y - 0.5 * h)
-                let b = -(a ** 2)
-                let c = 0.1 * 2 ** b
-                let d = 0.9 + c
-                return d
-            }
-            let resize_to = size(this.y, this.height),
+            let blurred = this.blurCache[Math.trunc(this.curves.r(this.y))]
+            let resize_to = this.curves.size(this.y),
                 resized = resize(blurred, blurred.width * resize_to, blurred.height * resize_to)
-            let result = resized
-            this.ctx.putImageData(result, this.canvas.width / 2 - result.width / 2, this.y)
+            this.ctx.putImageData(resized, this.canvas.width / 2 - resized.width / 2, this.y)
         }
     }
     create_blurcache() {
@@ -62,7 +50,7 @@ class LyricLine {
 
 
 class LyricPlayer {
-    constructor(canvas, lyrics_string, lyric_height = 100, space = 80, u = 100, g = 10) {
+    constructor(canvas, lyrics_string, lyric_height = 130, space = 100, u = 100, g = 10) {
         /*
     param space: The space between lines
     */
@@ -76,7 +64,11 @@ class LyricPlayer {
         this.h = lyric_height
         this.space = lyric_height + space
         this.playing = false
-        this.objects.push(new LyricLine(0, "", 0, this.h, this.canvas, 0))
+
+        let size = resizeCurve.getCurve(this.canvas.height, 1)
+        let r = blurRadiusCurve.getCurve(this.canvas.height, 10)
+
+        this.objects.push(new LyricLine(0, "· · ·", 0, this.h, this.canvas, 0, { size: size, r: r }))
         /*This space is different. It's the difference of y of each lyric line. */
         let lines = lyrics_string.split("\n\n")[1].split("\n")
         for (let line_index = 0; line_index < lines.length; line_index++) {
@@ -86,7 +78,10 @@ class LyricPlayer {
                 [minute_string, second_string] = time_string.split(':'),
                 [minute, second] = [Number(minute_string), Number(second_string)],
                 time = minute * 60 + second
-            this.objects[line_index + 1] = new LyricLine(time, lyric_line_content, this.space * line_index+50, this.h, this.canvas, time)
+            this.objects[line_index + 1] = new LyricLine(time, lyric_line_content, this.space * (line_index + 1) + 50, this.h, this.canvas, time, {
+                size: size,
+                r: r
+            })
         }
         //TODO: support exittime
         //TODO: support multi-line lyrics (line height will vary, and this.space should vary)
@@ -98,31 +93,42 @@ class LyricPlayer {
         if (t >= l.time) {
             console.log("turn for ", l)
             let duration = 0.5, maxv = 2 * this.space / duration,
-                player = this, starttime = t
-            for (let i = this.willplay_index;
+                player = this, starttime = t,
+                v = function (x) {
+                    if (x <= duration / 2) return 2 * maxv * x / duration
+                    else return 2 * maxv * (duration - x) / duration
+                }
+            for (let i = this.willplay_index - 1;
                 i < this.objects.length;
                 i++) {
-                let index = player.objects[i].animations.length,
-                    onScreenIndex = i - player.willplay_index
-                player.objects[i].animations.push(function (t, dt) {
+                let onScreenIndex = i - (player.willplay_index - 1)
+                let targetMove=this.space
+                let a = function (t, dt) {
                     //dt: time since last frame ( or, last call of this function )
-                    let xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
-                    let v = function (x) {
-                        if (x <= duration / 2) return 2 * maxv * x / duration
-                        else return 2 * maxv * (duration - x) / duration
+                    let xt = t - onScreenIndex * 0.02 - starttime // Time since animation start
+                    //xt-dt/2: speed at medium time is the average speed
+                    let x = v(xt - dt / 2) * dt
+                    if (xt > 0 && xt <= duration) {
+                        player.objects[i].y -= x
+                        targetMove-=x
                     }
-                    if (xt > 0 && xt <= duration) player.objects[i].y -= v(xt) * dt
                     else if (xt > 0) {
-                        player.objects[i].animations.splice(index, 1)
+                        player.objects[i].y-=targetMove
+                        for (let o = 0; o < player.objects[i].animations.length; o++) {
+                            if (player.objects[i].animations[o] == a) {
+                                delete player.objects[i].animations[o]
+                            }
+                        }
                     }
                     //else if xt<=0: stay still
-                })
+                }
+                player.objects[i].animations.push(a)
             }
             this.willplay_index++;
             if (this.willplay_index >= this.objects.length) this.playing = false
         }
 
-        for (let i = this.willplay_index - 1; i < this.objects.length; i++) {
+        for (let i = 0; i < this.objects.length; i++) {
             this.objects[i].move(t, dt)
         }
     }
@@ -161,4 +167,47 @@ class LyricPlayer {
 }
 
 
+
+class Curve {
+    constructor(prototypeFunction) {
+        /*
+        A Curve consists of prototypeFunction, definition domain and value domain.
+        The definition domain and value domain of prototypeFunction must be [0,1].
+        Then we'll scale according to, say, screensize.
+        */
+        this.prototypeFunction = prototypeFunction
+    }
+    getCurve(x, y) {
+        /*
+        param x: target definition domain
+        param y: target value domain
+        */
+        let pr = this.prototypeFunction
+        let curve = function (input) {
+            let xx = input / x
+            let res = pr(xx)
+            let ret = res * y
+            return ret
+        }
+        return curve
+    }
+}
+
+
+let resizeCurve = new Curve(function (x) {
+    let a = x - 0.025
+    let b = 20 * a
+    let c = -(b ** 2)
+    let d = 2 ** c
+    let e = 0.1 * d + 0.9
+    return e
+})
+let blurRadiusCurve = new Curve(function (x) {
+    let a = x - 0.05
+    let b = -22 * a
+    let c = -(2 ** b)
+    let d = c + 1
+    let e = Math.max(d, 0)
+    return e
+})
 

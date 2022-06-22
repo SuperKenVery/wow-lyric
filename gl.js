@@ -7,6 +7,26 @@
  * descript how to connect buffers, locations and
  * variables in shader sources well.
  */
+function Text(text, fontsize) {
+    if (text == "") text = " "
+    var tmp_canvas = document.createElement('canvas')
+    //var tmp_canvas=document.getElementById('tmp')
+    var ctx = tmp_canvas.getContext('2d')
+
+    ctx.textBaseline = 'top'
+    ctx.font = "700 " + String(fontsize) + "px Arial"
+
+    var draw_prediction = ctx.measureText(text)
+    tmp_canvas.height = fontsize + 8
+    tmp_canvas.width = draw_prediction.width
+
+    ctx.textBaseline = 'top'
+    ctx.font = "700 " + String(fontsize) + "px Arial"
+    ctx.fillStyle = "black"
+    ctx.fillText(text, 0, 8)
+    var imagedata = ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
+    return imagedata
+}
 function createShader(gl, type, source) {
     let shader = gl.createShader(type)
     gl.shaderSource(shader, source)
