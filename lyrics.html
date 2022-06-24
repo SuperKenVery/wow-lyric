@@ -6,17 +6,17 @@
 
 <body>
     <h1>Lyrics</h1>
-    <p>Upload song file here</p>
-    <input type="file" id="songfile" />
-    <p>Upload lyric file here</p>
+    <p>歌曲文件</p>
+    <input type="file" id="songfile">
+    <p>歌词文件</p>
     <input type="file" id="lyricfile">
-    <button onclick="main()">start</button>
-    <canvas id="lyric" width=3840 height=2160
-        style="position: fixed;width: 100vw;height: 100vh;left: 0;top: 0;z-index: -1;"></canvas>
-    <script type="text/javascript" src="gl.js"></script>
-    <script type="text/javascript" src="animation.js"></script>
-    <script type="text/javascript" src="lyrics.js"></script>
-    <script type="text/javascript" src="music.js"></script>
+    <p>专辑图文件</p>
+    <input type="file" id="artworkfile">
+    <button id="start">start</button>
+    <canvas id="lyric" style="display: block;height: 100vh;width: 100vw;position:fixed;top:0;left:0;z-index: -1;"></canvas>
+
+    <canvas id="background" style="display: block;height: 100vh;width: 100vw;position:fixed;top:0;left:0;z-index: -2;"></canvas>
+    <script type="module" src="lyrics.js"></script>
     <audio id="song"></audio>
 
 </body>

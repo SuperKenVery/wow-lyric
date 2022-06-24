@@ -7,24 +7,25 @@
  * descript how to connect buffers, locations and
  * variables in shader sources well.
  */
-function Text(text, fontsize) {
+export function Text(text, fontsize) {
     if (text == "") text = " "
-    var tmp_canvas = document.createElement('canvas')
+    let tmp_canvas = document.createElement('canvas')
     //var tmp_canvas=document.getElementById('tmp')
-    var ctx = tmp_canvas.getContext('2d')
+    let ctx = tmp_canvas.getContext('2d')
+    const font = "700 " + String(fontsize) + "px Arial"
 
     ctx.textBaseline = 'top'
-    ctx.font = "700 " + String(fontsize) + "px Arial"
+    ctx.font = font
 
-    var draw_prediction = ctx.measureText(text)
+    let draw_prediction = ctx.measureText(text)
     tmp_canvas.height = fontsize + 8
     tmp_canvas.width = draw_prediction.width
 
     ctx.textBaseline = 'top'
-    ctx.font = "700 " + String(fontsize) + "px Arial"
+    ctx.font = font
     ctx.fillStyle = "black"
     ctx.fillText(text, 0, 8)
-    var imagedata = ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
+    let imagedata = ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
     return imagedata
 }
 function createShader(gl, type, source) {
@@ -64,8 +65,8 @@ function getImageData(gl) {
     return imagedata
 }
 
-let maxR = 25
-blurProgramResource = {
+const maxR = 10
+const blurProgramResource = {
     //vector shader
     vertex_shader_source: `
         attribute vec2 a_position;
@@ -309,7 +310,7 @@ blurProgramResource = {
     }
 }
 
-resizeProgramResource = {
+const resizeProgramResource = {
     vertex_shader_source: `
         attribute vec2 a_position;
         attribute vec2 a_textureCoordinate;
@@ -462,7 +463,7 @@ function createEnvironment() {
 
 let environment = createEnvironment()
 
-function blur(imagedata, radius) {
+/*function blur(imagedata, radius) {
     if (environment == null) {
         environment = createEnvironment()
     }
@@ -491,9 +492,9 @@ function blur(imagedata, radius) {
     blurProgramResource.deleteBuffers(gl)
     return getImageData(gl)
 
-}
+}*/
 
-function resize(sourceImagedata, targetWidth, targetHeight) {
+export function resize(sourceImagedata, targetWidth, targetHeight) {
     if (environment == null) {
         environment = createEnvironment()
     }

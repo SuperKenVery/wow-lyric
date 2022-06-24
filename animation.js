@@ -1,5 +1,7 @@
 /* jshint esversion: 9 */
 let debug = true
+import { blur } from "./blur.js"
+import { resize,Text } from "./gl.js"
 
 class LyricLine {
     constructor(time, text = "Empty line", y, height, canvas, exittime, curves) {
@@ -48,9 +50,8 @@ class LyricLine {
     }
 }
 
-
-class LyricPlayer {
-    constructor(canvas, lyrics_string, lyric_height = 130, space = 100, u = 100, g = 10) {
+export class LyricPlayer {
+    constructor(canvas, lyrics_string, lyric_height = 80, space = 80, u = 100, g = 10) {
         /*
     param space: The space between lines
     */
@@ -91,7 +92,6 @@ class LyricPlayer {
         //t: time since started playing, in seconds
         let l = this.objects[this.willplay_index]
         if (t >= l.time) {
-            console.log("turn for ", l)
             let duration = 0.5, maxv = 2 * this.space / duration,
                 player = this, starttime = t,
                 v = function (x) {
@@ -195,7 +195,7 @@ class Curve {
 
 
 let resizeCurve = new Curve(function (x) {
-    let a = x - 0.025
+    let a = x - 0.05
     let b = 20 * a
     let c = -(b ** 2)
     let d = 2 ** c
@@ -203,8 +203,8 @@ let resizeCurve = new Curve(function (x) {
     return e
 })
 let blurRadiusCurve = new Curve(function (x) {
-    let a = x - 0.05
-    let b = -22 * a
+    let a = x - 0.1
+    let b = -17 * a
     let c = -(2 ** b)
     let d = c + 1
     let e = Math.max(d, 0)
