@@ -4,47 +4,41 @@ const gl = document.createElement("canvas").getContext("webgl")
 //const gl=document.getElementById("lyric").getContext("webgl")
 
 
-function createBlurProgram(r) {
-    const blurProgram = twgl.createProgramInfo(gl, [
+function createComposeProgram(r) {
+    const composeProgram = twgl.createProgramInfo(gl, [
         `
         //vertex shader
-        attribute vec2 a_position;
-        attribute vec2 a_textureCoordinate;
+        attribute vec2 vertexPosition;
+        attribute vec2 a_srcPosition;
 
-        uniform vec2 u_resolution;
-        uniform int r;
-
-        varying vec2 v_textureCoordinate;
+        varying vec2 srcPosition;
         void main(){
-            gl_Position=vec4(a_position,0,1);
+            gl_Position=vec4(vertexPosition,0,1);
 
             //For fragment shader
-            vec2 pixelSpace=a_textureCoordinate*(u_resolution+float(2*r));
-            vec2 targetPixelSpace=pixelSpace+vec2(float(-r),float(-r));
-            v_textureCoordinate=a_textureCoordinate;
+            srcPosition=a_srcPosition;
         }
         `,
         `
         precision mediump float;
-        precision highp int;
 
-        uniform sampler2D u_image;
-        uniform vec2 u_textureSize;
+        uniform sampler2D srcImg;
+        uniform vec2 srcSize;
         uniform sampler2D matrix;//Must be (2*maxR+1)x(2*maxR+1), type LUMINANCE
-        uniform float matrix_sum;//Used after adding up the sum. Devide by it.
+        uniform float matrixSum;//Used after adding up the sum. Devide by it.
 
-        varying vec2 v_textureCoordinate;
+        varying vec2 srcPosition;
 
         void main(){
-            vec2 onePixel=vec2(1,1)/u_textureSize;//a pixel of image
+            vec2 onePixel=vec2(1,1)/srcSize;//a pixel of image
             vec2 onePlace=vec2(1,1)/vec2(2*${r}+1,2*${r}+1);//a place of matrix
             vec4 pixelSum=vec4(0,0,0,0);
             //Blur here!
             for(int matrix_x=-${r};matrix_x<=${r};matrix_x++){
                 for(int matrix_y=-${r};matrix_y<=${r};matrix_y++){
                     float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,matrix_y))[0];
-                    vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,matrix_y));
-                    pixelSum+=pixel*(weight/matrix_sum);
+                    vec4 pixel=texture2D(srcImg,srcPosition+onePixel*vec2(matrix_x,matrix_y));
+                    pixelSum+=pixel*(weight/matrixSum);
                     //we can't pass float but only int in texture
                     //so devide in advance to prevent overflow
                 }
@@ -53,77 +47,130 @@ function createBlurProgram(r) {
         }
         `
     ])
+    return composeProgram
+}
 
-    return blurProgram
+function createCacheProgram(r) {
+    const cacheProgram = twgl.createProgramInfo(gl, [
+        `//vertex shader
+        attribute vec2 a_position;
+        attribute vec2 a_targetPosition;//in pixels
 
+        varying vec2 targetPosition;
+        void main(){
+            gl_Position=vec4(a_position,0,1);
+
+            v_textureCoordinate=a_textureCoordinate;
+        }
+        `,
+        `//fragment shader
+        precision mediump float;
+
+        uniform sampler2D src_img;
+        uniform vec2 img_size;
+        uniform sampler2D matrix;
+        uniform float matrix_sum;
+
+        varying vec2 targetPosition;//in pixels
+
+        void main(){
+            vec2 srcPosition=vec2(targetPosition[0]/(1/2*${r}),targetPosition[1]/${r});
+            vec2 cachePosition=vec2(targetPosition[0]%(1/2*${r}),targetPosition[1]%${r});
+            vec2 blurPosition=cachePosition;
+            if(cachePosotion[1]<cachePosition[0]){
+                blurPosition=${r}-cachePositin;
+            }
+
+            vec2 onePlace=vec2(1,1)/vec2(2*${r}+1,2*${r}+1);//a place of matrix
+            float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*blurPosition)[0];
+            vec4 srcPixel=texture2D(src_img,srcPosition/img_size);
+
+            gl_FragColor=srcPixel*weight;
+        }
+        `
+    ])
+    return cacheProgram
+}
+
+function createBlurProgram(r) {
+    return {
+        cache: createCacheProgram(r),
+        compose: createComposeProgram(r)
+    }
 }
 
 let blurProgramInfos = []
 
 export function blur(sourceImage, r) {
-    gl.canvas.width=sourceImage.width+2*r
-    gl.canvas.height=sourceImage.height+2*r
+    gl.canvas.width = sourceImage.width + 2 * r
+    gl.canvas.height = sourceImage.height + 2 * r
 
     if (blurProgramInfos[r] == undefined) {
         blurProgramInfos[r] = createBlurProgram(r)
     }
     let blurProgramInfo = blurProgramInfos[r]
-    //Attributes
-    let overflowx = r / sourceImage.width, overflowy = r / sourceImage.height
-    const arrays = {
-        a_position: {
-            numComponents: 2,
-            data: [-1, -1,
-            -1, 1,
-                1, -1,
-                1, 1],
-        },
-        a_textureCoordinate: {
-            numComponents: 2,
-            //data: [-overflowx, -overflowy, -overflowx, 1 + overflowy, 1 + overflowx, -overflowy, 1 + overflowx, 1 + overflowy],
-            data: [0,0,0,1,1,0,1,1]
-        }
-    }
 
-    const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays)
-    //Textures
-    let matrix = getGaussiumWeightMatrix(r)
-    let textures = twgl.createTextures(gl, {
-        srcImage: {
-            src: sourceImage,
-        },
-        gaussiumWeightMatrix: {
-            src: matrix.matrix,
-            format: gl.LUMINANCE,
-            width: 2 * r + 1,
-        }
-    })
-
-
-    //Uniforms
-    const uniforms = {
-        u_resolution: [sourceImage.width, sourceImage.height],
-        u_image: textures.srcImage,
-        u_textureSize: [sourceImage.width, sourceImage.height],
-        matrix: textures.gaussiumWeightMatrix,
-        matrix_sum: matrix.sum
-
-    }
-
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
-    gl.useProgram(blurProgramInfo.program)
-    twgl.setBuffersAndAttributes(gl, blurProgramInfo, bufferInfo)
-    twgl.setUniforms(blurProgramInfo, uniforms)
-    twgl.drawBufferInfo(gl, bufferInfo, gl.TRIANGLE_STRIP)
-
-    const result=getImageData(gl)
-
+    //blur
     {
-        gl.deleteTexture(textures.srcImage)
-        gl.deleteTexture(textures.gaussiumWeightMatrix)
+        //Attributes
+        let overflowx = r / sourceImage.width, overflowy = r / sourceImage.height
+        const arrays = {
+            vertexPosition: {
+                numComponents: 2,
+                data: [-1, -1,
+                -1, 1,
+                    1, -1,
+                    1, 1],
+            },
+            a_srcPosition: {
+                numComponents: 2,
+                data: [-overflowx, -overflowy, -overflowx, 1 + overflowy, 1 + overflowx, -overflowy, 1 + overflowx, 1 + overflowy],
+            }
+        }
+
+        const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays)
+        //Textures
+        let matrix = getGaussiumWeightMatrix(r)
+        let textures = twgl.createTextures(gl, {
+            srcImage: {
+                src: sourceImage,
+            },
+            gaussiumWeightMatrix: {
+                src: matrix.matrix,
+                format: gl.LUMINANCE,
+                width: 2 * r + 1,
+            }
+        })
+
+        //Uniforms
+        const uniforms = {
+            srcImg: textures.srcImage,
+            srcSize: [sourceImage.width, sourceImage.height],
+            matrix: textures.gaussiumWeightMatrix,
+            matrixSum: matrix.sum
+        }
+
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+        gl.useProgram(blurProgramInfo.compose.program)
+        twgl.setBuffersAndAttributes(gl, blurProgramInfo.compose, bufferInfo)
+        twgl.setUniforms(blurProgramInfo.compose, uniforms)
+        twgl.drawBufferInfo(gl, bufferInfo, gl.TRIANGLE_STRIP)
+
+        const result = getImageData(gl)
+
+        {
+            gl.deleteTexture(textures.srcImage)
+            gl.deleteTexture(textures.gaussiumWeightMatrix)
+        }
+        return result
     }
 
-    return result
+    //Compose
+    {
+
+    }
+
+
 }
 
 
