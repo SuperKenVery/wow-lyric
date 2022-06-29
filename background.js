@@ -134,7 +134,7 @@ export class Background {
         }
 
         const noBlur = this.noBlurCtx.getImageData(0, 0, this.noBlurCanvas.width, this.noBlurCanvas.height)
-        let blurred = blur(noBlur, 100)
+        let blurred = blur(noBlur, 5)
         this.bgCanvasCtx.putImageData(blurred, 0, 0)
     }
     play(time = 0) {
