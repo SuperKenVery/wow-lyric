@@ -33,9 +33,12 @@ function createComposeProgram(r) {
 
         vec2 blur2cache(vec2 blurPosition){
             const float cwidth=float(int(${r}/2)+1); //the width in cache corresponding to one pixel
+            if(blurPosition[1]<blurPosition[0]){
+                blurPosition=blurPosition.yx;
+            }
             if(blurPosition[0]>=cwidth){
-                blurPosition[0]=${r}.0-1.0-blurPosition[0];
-                blurPosition[1]=${r}.0-blurPosition[1];
+                blurPosition[0]=${r}.0-blurPosition[0];
+                blurPosition[1]=${r}.0-1.0-blurPosition[1];
             }
             //blurPosition is now cache position
             return blurPosition;
@@ -49,12 +52,13 @@ function createComposeProgram(r) {
                 for(int matrix_y=-${r};matrix_y<=${r};matrix_y++){
                     vec2 blurPosition=vec2(abs(matrix_x),abs(matrix_y));
                     vec2 cachePosition=blur2cache(blurPosition);
-                    vec2 pixelPosition=vec2((srcPosition[0]+float(matrix_x))*csize[0],(srcPosition[1]+float(matrix_y))*csize[1]);
+                    vec2 pixelPosition=(vec2(matrix_x,matrix_y)+srcPosition)*csize;
                     vec2 targetPosition=pixelPosition+cachePosition;
                     pixelSum+=texture2D(weighedCache,targetPosition/wcSize);
                 }
             }
-            gl_FragColor=pixelSum;
+            //gl_FragColor=pixelSum;
+            gl_FragColor=texture2D(weighedCache,(srcPosition*csize+vec2(1,1))/wcSize)+vec4(0,0,0,0);
         }
         `
     ])
@@ -65,7 +69,7 @@ function createCacheProgram(r) {
     const cacheProgram = twgl.createProgramInfo(gl, [
         `
         attribute vec2 a_position;
-        attribute vec2 a_targetPosition;//in pixels
+        attribute vec2 a_targetPosition;//in pixels, in weighed_cache
 
         varying vec2 targetPosition;
         void main(){
@@ -82,7 +86,7 @@ function createCacheProgram(r) {
         uniform sampler2D matrix;
         uniform float matrix_sum;
 
-        varying vec2 targetPosition;//in pixels,int
+        varying vec2 targetPosition;//in pixels, int, in weighed_cache
 
         void main(){
             const vec2 csize=vec2(int(${r}/2)+1,${r});   //the size in cache corresponding to one pixel
@@ -149,9 +153,9 @@ export function blur(sourceImage, r) {
             a_targetPosition: {
                 numComponents: 2,
                 data: [0, 0,
-                    0, sourceImage.height,
-                    sourceImage.width, 0,
-                    sourceImage.width, sourceImage.height],
+                    0, wcy,
+                    wcx, 0,
+                    wcx, wcy],
             }
         }
         const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays)
@@ -253,7 +257,7 @@ export function blur(sourceImage, r) {
 
 let gaussiumWeightMatrixCache = []
 function getGaussiumWeightMatrix(radius) {
-    var gaussiumWeight = null, gaussiumWeightSum = 0
+    let gaussiumWeight = null, gaussiumWeightSum = 0
     if (gaussiumWeightMatrixCache[radius] != undefined) {
         gaussiumWeight = gaussiumWeightMatrixCache[radius].gaussiumWeight
         gaussiumWeightSum = gaussiumWeightMatrixCache[radius].gaussiumWeightSum
@@ -261,18 +265,18 @@ function getGaussiumWeightMatrix(radius) {
         gaussiumWeight = new Float32Array((2 * radius + 1) ** 2)
         gaussiumWeightSum = 0
         let p = 0, r = radius, rr = r ** 2, A = 1 - p ** 2, B = 1 / (2 * Math.PI * rr * A ** 0.5), C = -1 / (2 * A)
-        var t = 0, f = 0
-        for (var x = -r; x <= r; x++) {
-            for (var y = -r; y <= r; y++) {
+        let t = 0, f = 0
+        for (let x = -r; x <= r; x++) {
+            for (let y = -r; y <= r; y++) {
                 t = C * (x ** 2 + y ** 2 - p * x * y) / rr
                 f = B * Math.exp(t)
                 gaussiumWeight[(x + r) * (2 * r + 1) + (y + r)] = f * 255 //will be devided by 255 in texture2d
                 gaussiumWeightSum += f
             }
         }
-        var max_val = gaussiumWeight[r * (2 * r + 1) + r]
-        var multiply = 255 / max_val
-        for (var i = 0; i < gaussiumWeight.length; i++) {
+        let max_val = gaussiumWeight[r * (2 * r + 1) + r]
+        let multiply = 255 / max_val
+        for (let i = 0; i < gaussiumWeight.length; i++) {
             gaussiumWeight[i] *= multiply
         }
         gaussiumWeightSum *= multiply
@@ -289,9 +293,9 @@ function getGaussiumWeightMatrix(radius) {
 }
 
 function getImageData(gl) {
-    var pixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4)
+    let pixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4)
     gl.readPixels(0, 0, gl.canvas.width, gl.canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-    var clampedPixels = new Uint8ClampedArray(pixels)
-    var imagedata = new ImageData(clampedPixels, gl.canvas.width, gl.canvas.height)
+    let clampedPixels = new Uint8ClampedArray(pixels)
+    let imagedata = new ImageData(clampedPixels, gl.canvas.width, gl.canvas.height)
     return imagedata
 }

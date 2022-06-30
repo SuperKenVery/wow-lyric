@@ -1,6 +1,8 @@
 /* jshint esversion: 9 */
 import { LyricPlayer } from './animation.js'
 import { Background } from './background.js'
+import { blur } from './blur.js'
+import { resize } from './gl.js'
 
 export async function main() {
     const lyricContext = lyricCanvas.getContext('2d')
@@ -13,8 +15,12 @@ export async function main() {
         console.log("Failed to get 2d context of background canvas")
     }
 
-    const background = new Background(artworkImageData, bgContext)
-    background.play()
+    //const background = new Background(artworkImageData, bgContext)
+    //background.play()
+    const bgctx = bgCanvas.getContext("2d")
+    const blurred = blur(artworkImageData, 8)
+    const resized = resize(blurred, bgCanvas.width, bgCanvas.height)
+    bgctx.putImageData(resized, 0, 0)
 
     /*const lyricPlayer = new LyricPlayer(lyricCanvas, lyrics)
     audioPlayer.play()
@@ -33,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
     lyricFileInput = document.getElementById("lyricfile")
     songFileInput = document.getElementById("songfile")
     artworkFileInput = document.getElementById("artworkfile")
-    startButton=document.getElementById("start")
+    startButton = document.getElementById("start")
 
     let resize = function () {
         lyricCanvas.width = lyricCanvas.clientWidth
@@ -89,5 +95,5 @@ document.addEventListener("DOMContentLoaded", () => {
     artworkFileInput.addEventListener("change", artworkFileInputHandler)
     artworkFileInputHandler()
 
-    startButton.addEventListener("click",main)
+    startButton.addEventListener("click", main)
 })
