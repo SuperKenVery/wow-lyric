@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     lyricFileInput = document.getElementById("lyricfile")
     songFileInput = document.getElementById("songfile")
     artworkFileInput = document.getElementById("artworkfile")
-    startButton=document.getElementById("start")
+    startButton = document.getElementById("start")
 
     let resize = function () {
         lyricCanvas.width = lyricCanvas.clientWidth
@@ -93,5 +93,5 @@ document.addEventListener("DOMContentLoaded", () => {
     artworkFileInput.addEventListener("change", artworkFileInputHandler)
     artworkFileInputHandler()
 
-    startButton.addEventListener("click",main)
+    startButton.addEventListener("click", main)
 })
