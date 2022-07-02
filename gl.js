@@ -29,27 +29,6 @@ export function Text(text, fontsize, width) {
 
     return ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
 }
-function no_wrap_text(text, fontsize) {
-    if (text == "") text = " "
-    let tmp_canvas = document.createElement('canvas')
-    //var tmp_canvas=document.getElementById('tmp')
-    let ctx = tmp_canvas.getContext('2d')
-    const font = "700 " + String(fontsize) + "px Arial"
-
-    ctx.textBaseline = 'top'
-    ctx.font = font
-
-    let draw_prediction = ctx.measureText(text)
-    tmp_canvas.height = draw_prediction.actualBoundingBoxAscent + draw_prediction.actualBoundingBoxDescent
-    tmp_canvas.width = draw_prediction.actualBoundingBoxRight + draw_prediction.actualBoundingBoxLeft
-
-    ctx.textBaseline = 'top'
-    ctx.font = font
-    ctx.fillStyle = "white"
-    ctx.fillText(text, draw_prediction.actualBoundingBoxLeft, draw_prediction.actualBoundingBoxAscent)
-    let imagedata = ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
-    return imagedata
-}
 
 function wrap(text, ctx, font) {
     const width = ctx.canvas.width,
