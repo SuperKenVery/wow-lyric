@@ -23,7 +23,7 @@ export function Text(text, fontsize) {
 
     ctx.textBaseline = 'top'
     ctx.font = font
-    ctx.fillStyle = "black"
+    ctx.fillStyle = "white"
     ctx.fillText(text, 0, 8)
     let imagedata = ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
     return imagedata

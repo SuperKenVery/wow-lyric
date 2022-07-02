@@ -1,21 +1,13 @@
 /* jshint esversion: 9 */
 import { blur } from "./blur.js"
+import { resize } from "./gl.js"
 function random(min, max) {
     let span = max - min
     let r = Math.random() * span + min
     return r
 }
-function getSpinCenterOfBackground(out = 0.5) {
-    let y = random(-out, 1 + out), x = 0
-    if (y <= 0 || (y > 1 && y <= 1 + out)) {
-        x = random(-out, 1 + out)
-    } else if (y > 0 && y <= 1) {
-        let xx = random(-out, out)
-        if (xx > 0) xx += 1
-        x = xx
-    } else {
-        throw "randomGeneratorError"
-    }
+function getSpinCenterOfBackground(out = 0) {
+    let y = random(-out, 1 + out), x = random(-out, 1 + out)
     return [x, y]
 }
 function getSpinCenterOfImage() {
@@ -34,30 +26,25 @@ class Spinner {
         this.canvasCtx = canvasCtx
         const bgsc = getSpinCenterOfBackground()
         this.bgSpinCenter = [bgsc[0] * w, bgsc[1] * h]
+        const zoom = w / this.image.width
+        this.scale = random(zoom * 0.7, zoom * 1.2)
         {
             const scaledImageCanvas = document.createElement("canvas")
-            scaledImageCanvas.width = w
-            scaledImageCanvas.height = h
             const scaledImgaeContext = scaledImageCanvas.getContext('2d')
-            scaledImgaeContext.scale(this.scale, this.scale)
-            scaledImgaeContext.putImageData(image, 0, 0)
+            const sw = this.scale * image.width, sh = this.scale * image.height
+            scaledImageCanvas.width = sw; scaledImageCanvas.height = sh;
+            const scaledImageData = resize(image, sw, sh)
+            scaledImgaeContext.putImageData(scaledImageData, 0, 0)
             this.scaledImageCanvas = scaledImageCanvas
         }
         const imgsc = getSpinCenterOfImage()
         const imgSpinCenter = [imgsc[0] * this.scaledImageCanvas.width, imgsc[1] * this.scaledImageCanvas.height]
         this.drawPos = [-imgSpinCenter[0], -imgSpinCenter[1]]
         this.angle = 0
-        this.v = random(Math.PI * 2 / 1600, Math.PI * 2 / 800)
-        const zoom = 1 / (this.image.width / w)
-        this.scale = random(zoom * 8, zoom * 15)
-
-
+        this.v = random(Math.PI * 2 / 800, Math.PI * 2 / 400)
     }
     move(t, dt) {
-        this.angle += this.v //* dt
-        //The animation requires too much GPU power...
-        //Maybe we should make sure that it doesn't move too much
-        //between frames, when it's 1 fps.
+        this.angle += this.v * dt
     }
     render() {
         const ctx = this.canvasCtx
@@ -98,15 +85,8 @@ export class Background {
 
         //Scale for background
         {
-            const canvas = document.createElement("canvas")
             const ratio = Math.max(bgCanvasCtx.canvas.width / image.width, bgCanvasCtx.canvas.height / image.height)
-            canvas.width = image.width * ratio
-            canvas.height = image.height * ratio
-            const ctx = canvas.getContext("2d")
-            ctx.scale(ratio, ratio)
-            ctx.putImageData(image, 0, 0)
-            this.scaledImage = ctx.getImageData(0, 0, canvas.width, canvas.height)
-            canvas.remove()
+            this.scaledImage = resize(image, ratio * image.width, ratio * image.height)
         }
         //Canvas before blur
         this.noBlurCanvas = document.createElement("canvas")
@@ -134,7 +114,7 @@ export class Background {
         }
 
         const noBlur = this.noBlurCtx.getImageData(0, 0, this.noBlurCanvas.width, this.noBlurCanvas.height)
-        let blurred = blur(noBlur, 100)
+        let blurred = blur(noBlur, 200)
         this.bgCanvasCtx.putImageData(blurred, 0, 0)
     }
     play(time = 0) {
@@ -156,11 +136,8 @@ export class Background {
 
             bg.move(t, dt)
             bg.render()
-
-
+            window.requestAnimationFrame(move_wrapper)
         }
-        const fps=1/3
-        this.intervalId=setInterval(move_wrapper,1000/fps)
-        move_wrapper()
+        window.requestAnimationFrame(move_wrapper)
     }
 }
