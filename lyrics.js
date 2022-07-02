@@ -14,12 +14,16 @@ export async function main() {
         console.log("Failed to get 2d context of background canvas")
     }
 
+    startButton.innerHTML ="加载中 Loading"
     const background = new Background(artworkImageData, bgContext)
     background.play()
 
     const lyricPlayer = new LyricPlayer(lyricCanvas, lyrics)
     audioPlayer.play()
     lyricPlayer.play()
+
+    const uploadControls=document.getElementById("upload-controls")
+    uploadControls.style.display="none"
 
     //const txt=Text("You just want attention, you don't want my heart",80,500)
     //bgContext.putImageData(txt,0,0)

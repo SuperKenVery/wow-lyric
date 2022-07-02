@@ -21,7 +21,7 @@ export function Text(text, fontsize, width) {
 
     ctx.textBaseline = 'top'
     ctx.font = font
-    ctx.fillStyle = "black"
+    ctx.fillStyle = "white"
     for (let line_index = 0; line_index < lines.length; line_index++) {
         const line = lines[line_index]
         ctx.fillText(line, 0, height * line_index)

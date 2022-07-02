@@ -1,16 +1,21 @@
-# wow-lyric
+# Wow-Lyric
 
-#### 简介
+## Introduction
 
+Gorgeous lyric animation
 
-华丽的歌词动画效果
+If you've used Apple's Music app, you'll find it familiar.
 
-如果用过apple music，你应该会觉得很熟悉。
+## Usage
 
+1. Clone or download this repository
+2. Open `lyrics.html` using your browser
+3. Upload the song file, lyric file and album art image file
+4. Click `开始 Start` button. Wait for a little while, and the animation will begin.
 
-#### Development
+## Development
 
-##### GPU acceleration
+### GPU acceleration
 
 The GPU acceleration part is a mess. It has mainly 2 functions:
 
