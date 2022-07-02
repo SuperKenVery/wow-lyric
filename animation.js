@@ -19,7 +19,7 @@ class LyricLine {
 
         this.blurCache = {}
         this.animations = []
-        this.targetMove = 0
+        this.debt = 0
 
         /*For y, we take downwards as positive and upwards as negative.*/
 
@@ -34,6 +34,10 @@ class LyricLine {
         this.animations.forEach(animation => {
             animation(t, dt)
         });
+        if (this.animations == [] && this.debt != 0) {
+            this.y -= this.debt
+            this.debt = 0
+        }
     }
     render() {
         if (this.y < this.canvas.height && this.y > -this.renderedText.height) {
@@ -69,9 +73,9 @@ export class LyricPlayer {
         let size = resizeCurve.getCurve(this.canvas.height, 1)
         let r = blurRadiusCurve.getCurve(this.canvas.height, 10)
 
-        this.objects.push(new LyricLine(0, "· · ·", 0, this.h, this.canvas, 0, { size: size, r: r }))
+        this.objects.push(new LyricLine(0, "· · ·", this.space, this.h, this.canvas, 0, { size: size, r: r }))
         let lines = lyrics_string.split("\n\n")[1].split("\n")
-        let y = 50
+        let y = this.objects[0].y
         for (let line_index = 0; line_index < lines.length; line_index++) {
             let lyric_line_raw = lines[line_index],
                 [time_raw, lyric_line_content] = lyric_line_raw.split(']'),
@@ -94,17 +98,18 @@ export class LyricPlayer {
         const l = this.objects[this.willplay_index]
         if (t >= l.time - duration) {
             const x = this.objects[this.willplay_index - 1].height + this.space,
-                maxv = 2 * x / duration,
-                player = this, starttime = t,
-                v = function (x) {
-                    if (x <= duration / 2) return 2 * maxv * x / duration
-                    else return 2 * maxv * (duration - x) / duration
-                }
+                player = this, starttime = t
             for (let i = this.willplay_index - 1;
                 i < this.objects.length;
                 i++) {
                 const onScreenIndex = i - (player.willplay_index - 1)
-                let targetMove = x
+                let targetMove = x + player.objects[i].debt
+                const maxv = 2 * targetMove / duration,
+                    v = function (x) {
+                        if (x <= duration / 2) return 2 * maxv * x / duration
+                        else return 2 * maxv * (duration - x) / duration
+                    }
+                player.objects[i].debt = 0
                 const a = function (t, dt) {
                     //dt: time since last frame ( or, last call of this function )
                     let xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
@@ -115,7 +120,7 @@ export class LyricPlayer {
                         targetMove -= x
                     }
                     else if (xt > 0) {
-                        player.objects[i].y -= targetMove
+                        player.objects[i].debt += targetMove
                         for (let o = 0; o < player.objects[i].animations.length; o++) {
                             if (player.objects[i].animations[o] == a) {
                                 delete player.objects[i].animations[o]
