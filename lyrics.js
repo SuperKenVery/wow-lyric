@@ -1,6 +1,7 @@
 /* jshint esversion: 9 */
 import { LyricPlayer } from './animation.js'
 import { Background } from './background.js'
+import { Text } from './gl.js'
 
 export async function main() {
     const lyricContext = lyricCanvas.getContext('2d')
@@ -16,9 +17,12 @@ export async function main() {
     const background = new Background(artworkImageData, bgContext)
     background.play()
 
-    /*const lyricPlayer = new LyricPlayer(lyricCanvas, lyrics)
+    const lyricPlayer = new LyricPlayer(lyricCanvas, lyrics)
     audioPlayer.play()
-    lyricPlayer.play()*/
+    lyricPlayer.play()
+
+    //const txt=Text("You just want attention, you don't want my heart",80,500)
+    //bgContext.putImageData(txt,0,0)
 }
 
 //var promise=main()

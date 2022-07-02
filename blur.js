@@ -61,8 +61,11 @@ function createBlurProgram(r) {
 let blurProgramInfos = []
 
 export function blur(sourceImage, r) {
-    gl.canvas.width=sourceImage.width+2*r
-    gl.canvas.height=sourceImage.height+2*r
+    if(r==0){
+        return sourceImage
+    }
+    gl.canvas.width = sourceImage.width + 2 * r
+    gl.canvas.height = sourceImage.height + 2 * r
 
     if (blurProgramInfos[r] == undefined) {
         blurProgramInfos[r] = createBlurProgram(r)

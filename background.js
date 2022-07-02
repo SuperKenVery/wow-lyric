@@ -156,10 +156,10 @@ export class Background {
 
             bg.move(t, dt)
             bg.render()
-
-
+            //window.requestAnimationFrame(move_wrapper)
         }
-        const fps=1/3
+        //window.requestAnimationFrame(move_wrapper)
+        const fps=3
         this.intervalId=setInterval(move_wrapper,1000/fps)
         move_wrapper()
     }

@@ -1,21 +1,21 @@
 /* jshint esversion: 9 */
 let debug = true
 import { blur } from "./blur.js"
-import { resize,Text } from "./gl.js"
+import { resize, Text } from "./gl.js"
 
 class LyricLine {
     constructor(time, text = "Empty line", y, height, canvas, exittime, curves) {
         this.time = time
         this.text = text
-        this.height = height
+        this.renderedText = Text(text, height, canvas.width * 0.7)
+
+        this.height = this.renderedText.height
         this.canvas = canvas
         this.ctx = canvas.getContext("2d")
         this.exittime = exittime
         this.y = y
         this.curves = curves
 
-        this.renderedText = Text(text, height)
-        this.renderResult = this.renderedText
 
         this.blurCache = {}
         this.animations = []
@@ -36,7 +36,7 @@ class LyricLine {
         });
     }
     render() {
-        if (this.y < this.canvas.height && this.y > -this.renderResult.height) {
+        if (this.y < this.canvas.height && this.y > -this.renderedText.height) {
             let blurred = this.blurCache[Math.trunc(this.curves.r(this.y))]
             let resize_to = this.curves.size(this.y),
                 resized = resize(blurred, blurred.width * resize_to, blurred.height * resize_to)
@@ -53,8 +53,8 @@ class LyricLine {
 export class LyricPlayer {
     constructor(canvas, lyrics_string, lyric_height = 80, space = 80, u = 100, g = 10) {
         /*
-    param space: The space between lines
-    */
+        param space: The space between lines
+        */
         this.canvas = canvas
         this.ctx = this.canvas.getContext("2d")
         this.lyrics_string = lyrics_string
@@ -63,15 +63,15 @@ export class LyricPlayer {
         this.g = g
         this.objects = []
         this.h = lyric_height
-        this.space = lyric_height + space
+        this.space = space
         this.playing = false
 
         let size = resizeCurve.getCurve(this.canvas.height, 1)
         let r = blurRadiusCurve.getCurve(this.canvas.height, 10)
 
         this.objects.push(new LyricLine(0, "· · ·", 0, this.h, this.canvas, 0, { size: size, r: r }))
-        /*This space is different. It's the difference of y of each lyric line. */
         let lines = lyrics_string.split("\n\n")[1].split("\n")
+        let y = 50
         for (let line_index = 0; line_index < lines.length; line_index++) {
             let lyric_line_raw = lines[line_index],
                 [time_raw, lyric_line_content] = lyric_line_raw.split(']'),
@@ -79,20 +79,22 @@ export class LyricPlayer {
                 [minute_string, second_string] = time_string.split(':'),
                 [minute, second] = [Number(minute_string), Number(second_string)],
                 time = minute * 60 + second
-            this.objects[line_index + 1] = new LyricLine(time, lyric_line_content, this.space * (line_index + 1) + 50, this.h, this.canvas, time, {
+            y += this.objects[line_index].height + this.space
+            this.objects[line_index + 1] = new LyricLine(time, lyric_line_content, y, this.h, this.canvas, time, {
                 size: size,
                 r: r
             })
         }
         //TODO: support exittime
-        //TODO: support multi-line lyrics (line height will vary, and this.space should vary)
     }
 
     move(t, dt) {
         //t: time since started playing, in seconds
-        let l = this.objects[this.willplay_index]
-        if (t >= l.time) {
-            let duration = 0.5, maxv = 2 * this.space / duration,
+        const duration = 0.5
+        const l = this.objects[this.willplay_index]
+        if (t >= l.time - duration) {
+            const x = this.objects[this.willplay_index - 1].height + this.space,
+                maxv = 2 * x / duration,
                 player = this, starttime = t,
                 v = function (x) {
                     if (x <= duration / 2) return 2 * maxv * x / duration
@@ -101,19 +103,19 @@ export class LyricPlayer {
             for (let i = this.willplay_index - 1;
                 i < this.objects.length;
                 i++) {
-                let onScreenIndex = i - (player.willplay_index - 1)
-                let targetMove=this.space
-                let a = function (t, dt) {
+                const onScreenIndex = i - (player.willplay_index - 1)
+                let targetMove = x
+                const a = function (t, dt) {
                     //dt: time since last frame ( or, last call of this function )
-                    let xt = t - onScreenIndex * 0.02 - starttime // Time since animation start
+                    let xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
                     //xt-dt/2: speed at medium time is the average speed
                     let x = v(xt - dt / 2) * dt
                     if (xt > 0 && xt <= duration) {
                         player.objects[i].y -= x
-                        targetMove-=x
+                        targetMove -= x
                     }
                     else if (xt > 0) {
-                        player.objects[i].y-=targetMove
+                        player.objects[i].y -= targetMove
                         for (let o = 0; o < player.objects[i].animations.length; o++) {
                             if (player.objects[i].animations[o] == a) {
                                 delete player.objects[i].animations[o]

@@ -7,7 +7,29 @@
  * descript how to connect buffers, locations and
  * variables in shader sources well.
  */
-export function Text(text, fontsize) {
+export function Text(text, fontsize, width) {
+    let tmp_canvas = document.createElement('canvas')
+    let ctx = tmp_canvas.getContext('2d')
+    const font = "700 " + String(fontsize) + "px Arial"
+    ctx.textBaseline = 'top'
+    ctx.font = font
+
+    tmp_canvas.width = width
+    const lines = wrap(text, ctx, font)
+    const height = fontsize + 20 //The distance between each line's top line
+    tmp_canvas.height = lines.length * height
+
+    ctx.textBaseline = 'top'
+    ctx.font = font
+    ctx.fillStyle = "black"
+    for (let line_index = 0; line_index < lines.length; line_index++) {
+        const line = lines[line_index]
+        ctx.fillText(line, 0, height * line_index)
+    }
+
+    return ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
+}
+function no_wrap_text(text, fontsize) {
     if (text == "") text = " "
     let tmp_canvas = document.createElement('canvas')
     //var tmp_canvas=document.getElementById('tmp')
@@ -18,16 +40,66 @@ export function Text(text, fontsize) {
     ctx.font = font
 
     let draw_prediction = ctx.measureText(text)
-    tmp_canvas.height = fontsize + 8
-    tmp_canvas.width = draw_prediction.width
+    tmp_canvas.height = draw_prediction.actualBoundingBoxAscent + draw_prediction.actualBoundingBoxDescent
+    tmp_canvas.width = draw_prediction.actualBoundingBoxRight + draw_prediction.actualBoundingBoxLeft
 
     ctx.textBaseline = 'top'
     ctx.font = font
-    ctx.fillStyle = "black"
-    ctx.fillText(text, 0, 8)
+    ctx.fillStyle = "white"
+    ctx.fillText(text, draw_prediction.actualBoundingBoxLeft, draw_prediction.actualBoundingBoxAscent)
     let imagedata = ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
     return imagedata
 }
+
+function wrap(text, ctx, font) {
+    const width = ctx.canvas.width,
+        measure = function (txt) {
+            ctx.font = font
+            const metric = ctx.measureText(txt)
+            const width = metric.actualBoundingBoxLeft + metric.actualBoundingBoxRight
+            return width
+        },
+        words = text.split(" ")
+    let lines = [], l = "", tl = l//l: line tl: test line
+    for (let i = 0; i < words.length; i++) {
+        tl += words[i]
+        if (measure(tl) <= width) {
+            tl += " "
+            l = tl
+        } else {
+            if (l == "") {
+                //The new line is empty
+                //The word is longer than a whole line
+                let nl //next line
+                [l, nl] = splitAtWidth(words[i], measure, width)
+                words.splice(i + 1, 0, nl)
+            } else {
+                i--
+            }
+            lines.push(l)
+            l = ""
+            tl = ""
+        }
+    }
+    if (l != "") lines.push(l)
+    return lines
+}
+function splitAtWidth(text, measure, width) {
+    if (measure(text) <= width) {
+        return [text, ""]
+    } else {
+        let a = "", ta = a//ta: test a
+        for (let i = 0; i < text.length; i++) {
+            ta += text[i]
+            if (measure(ta) <= width) a = ta
+            else {
+                return [a, text.slice(i)]
+            }
+        }
+    }
+
+}
+
 function createShader(gl, type, source) {
     let shader = gl.createShader(type)
     gl.shaderSource(shader, source)
