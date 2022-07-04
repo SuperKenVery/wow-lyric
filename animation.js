@@ -2,13 +2,18 @@
 let debug = true
 import { blur } from "./blur.js"
 import { resize, Text } from "./gl.js"
-
+const LineStates = {
+    future: 0,
+    current: 1,
+    goingHistory: 2,
+    history: 3
+}
 class LyricLine {
     constructor(time, text = "Empty line", y, height, canvas, exittime, curves) {
-        this.time = time
-        this.text = text
         this.renderedText = Text(text, height, canvas.width * 0.7)
 
+        this.time = time
+        this.text = text
         this.height = this.renderedText.height
         this.canvas = canvas
         this.ctx = canvas.getContext("2d")
@@ -16,27 +21,23 @@ class LyricLine {
         this.y = y
         this.curves = curves
 
-
         this.blurCache = {}
         this.animations = []
         this.debt = 0
+        this.state = LineStates.future
 
         /*For y, we take downwards as positive and upwards as negative.*/
-
-
         this.create_blurcache()
-
-        if (debug) {
-            let ll = this
-        }
     }
     move(t, dt) {
-        this.animations.forEach(animation => {
-            animation(t, dt)
-        });
-        if (this.animations == [] && this.debt != 0) {
-            this.y -= this.debt
-            this.debt = 0
+        if (this.state != LineStates.history) {
+            this.animations.forEach(animation => {
+                animation(t, dt)
+            });
+            if (this.state == LineStates.goingHistory && this.animations[this.animations.length - 1] == undefined) {
+                this.y = -this.height
+                this.state = LineStates.history
+            }
         }
     }
     render() {
@@ -97,6 +98,8 @@ export class LyricPlayer {
         const duration = 0.5
         const l = this.objects[this.willplay_index]
         if (t >= l.time - duration) {
+            l.state = LineStates.current
+            this.objects[this.willplay_index - 1].state = LineStates.goingHistory
             const x = this.objects[this.willplay_index - 1].height + this.space,
                 player = this, starttime = t
             for (let i = this.willplay_index - 1;
