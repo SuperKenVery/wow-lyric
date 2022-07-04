@@ -114,7 +114,7 @@ export class Background {
         }
 
         const noBlur = this.noBlurCtx.getImageData(0, 0, this.noBlurCanvas.width, this.noBlurCanvas.height)
-        let blurred = blur(noBlur, 200)
+        let blurred = blur(noBlur, 100)
         this.bgCanvasCtx.putImageData(blurred, 0, 0)
     }
     play(time = 0) {
@@ -139,7 +139,7 @@ export class Background {
             //window.requestAnimationFrame(move_wrapper)
         }
         //window.requestAnimationFrame(move_wrapper)
-        const fps=3
+        const fps=2
         this.intervalId=setInterval(move_wrapper,1000/fps)
         move_wrapper()
     }

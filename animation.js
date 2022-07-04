@@ -42,10 +42,15 @@ class LyricLine {
     }
     render() {
         if (this.y < this.canvas.height && this.y > -this.renderedText.height) {
-            let blurred = this.blurCache[Math.trunc(this.curves.r(this.y))]
-            let resize_to = this.curves.size(this.y),
-                resized = resize(blurred, blurred.width * resize_to, blurred.height * resize_to)
-            this.ctx.putImageData(resized, this.canvas.width / 2 - resized.width / 2, this.y)
+            let blurred
+            if (this.state != LineStates.current) {
+                blurred = this.blurCache[Math.trunc(this.curves.r(this.y))]
+            } else {
+                blurred = this.renderedText
+            }
+            //let resize_to = this.curves.size(this.y),
+            //    resized = resize(blurred, blurred.width * resize_to, blurred.height * resize_to)
+            this.ctx.putImageData(blurred, this.canvas.width / 2 - blurred.width / 2, this.y)
         }
     }
     create_blurcache() {
@@ -56,7 +61,7 @@ class LyricLine {
 }
 
 export class LyricPlayer {
-    constructor(canvas, lyrics_string, lyric_height = 80, space = 80, u = 100, g = 10) {
+    constructor(canvas, lyrics_string, lyric_height = 160, space = 160, u = 100, g = 10) {
         /*
         param space: The space between lines
         */
@@ -95,10 +100,9 @@ export class LyricPlayer {
 
     move(t, dt) {
         //t: time since started playing, in seconds
-        const duration = 0.5
+        const duration = 0.3
         const l = this.objects[this.willplay_index]
         if (t >= l.time - duration) {
-            l.state = LineStates.current
             this.objects[this.willplay_index - 1].state = LineStates.goingHistory
             const x = this.objects[this.willplay_index - 1].height + this.space,
                 player = this, starttime = t
@@ -129,6 +133,7 @@ export class LyricPlayer {
                                 delete player.objects[i].animations[o]
                             }
                         }
+                        if (player.objects[i] == l) l.state = LineStates.current
                     }
                     //else if xt<=0: stay still
                 }

@@ -44,10 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
     startButton = document.getElementById("start")
 
     let resize = function () {
-        lyricCanvas.width = lyricCanvas.clientWidth
-        lyricCanvas.height = lyricCanvas.clientHeight
-        bgCanvas.width = bgCanvas.clientWidth
-        bgCanvas.height = bgCanvas.clientHeight
+        for(let i of [lyricCanvas,bgCanvas]){
+            i.width=i.clientWidth*window.devicePixelRatio
+            i.height=i.clientHeight*window.devicePixelRatio
+        }
     }
     window.addEventListener("resize", resize)
     resize()

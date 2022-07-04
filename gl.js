@@ -20,11 +20,13 @@ export function Text(text, fontsize, width) {
     tmp_canvas.height = lines.length * height
 
     ctx.textBaseline = 'top'
+    ctx.textAlign='center'
     ctx.font = font
     ctx.fillStyle = "white"
+    const x=width/2
     for (let line_index = 0; line_index < lines.length; line_index++) {
         const line = lines[line_index]
-        ctx.fillText(line, 0, height * line_index)
+        ctx.fillText(line, x, height * line_index)
     }
 
     return ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
