@@ -23,7 +23,6 @@ class LyricLine {
 
         this.blurCache = {}
         this.animations = []
-        this.debt = 0
         this.state = LineStates.future
 
         /*For y, we take downwards as positive and upwards as negative.*/
@@ -34,10 +33,10 @@ class LyricLine {
             this.animations.forEach(animation => {
                 animation(t, dt)
             });
-            if (this.state == LineStates.goingHistory && this.animations[this.animations.length - 1] == undefined) {
+            /*if (this.state == LineStates.goingHistory && this.animations[this.animations.length - 1] == undefined) {
                 this.y = -this.height
                 this.state = LineStates.history
-            }
+            }*/
         }
     }
     render() {
@@ -104,30 +103,31 @@ export class LyricPlayer {
         const l = this.objects[this.willplay_index]
         if (t >= l.time - duration) {
             this.objects[this.willplay_index - 1].state = LineStates.goingHistory
-            const x = this.objects[this.willplay_index - 1].height + this.space,
+            const shouldMove = this.objects[this.willplay_index - 1].height + this.space,
                 player = this, starttime = t
             for (let i = this.willplay_index - 1;
                 i < this.objects.length;
                 i++) {
                 const onScreenIndex = i - (player.willplay_index - 1)
-                let targetMove = x + player.objects[i].debt
-                const maxv = 2 * targetMove / duration,
-                    v = function (x) {
-                        if (x <= duration / 2) return 2 * maxv * x / duration
-                        else return 2 * maxv * (duration - x) / duration
+                const targetMove = shouldMove
+                const k = 2 * targetMove / (duration ** 2),
+                    pos = function (x) {
+                        if (x <= 0) return 0
+                        else if (x <= duration / 2) return k * x ** 2
+                        else if (x <= duration) return targetMove - k * (x - duration) ** 2
+                        else return targetMove
                     }
-                player.objects[i].debt = 0
+                let lastxt=0
                 const a = function (t, dt) {
                     //dt: time since last frame ( or, last call of this function )
-                    let xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
-                    //xt-dt/2: speed at medium time is the average speed
-                    let x = v(xt - dt / 2) * dt
+                    const xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
                     if (xt > 0 && xt <= duration) {
+                        const x = pos(xt) - pos(lastxt)
                         player.objects[i].y -= x
-                        targetMove -= x
-                    }
-                    else if (xt > 0) {
-                        player.objects[i].debt += targetMove
+                        lastxt = xt
+                    }else if (xt > duration) {
+                        const x = pos(xt) - pos(lastxt)
+                        player.objects[i].y -= x
                         for (let o = 0; o < player.objects[i].animations.length; o++) {
                             if (player.objects[i].animations[o] == a) {
                                 delete player.objects[i].animations[o]
@@ -136,6 +136,14 @@ export class LyricPlayer {
                         if (player.objects[i] == l) l.state = LineStates.current
                     }
                     //else if xt<=0: stay still
+                }
+                const b = function (t, dt) {
+                    player.objects[i].y -= targetMove
+                    for (let o = 0; o < player.objects[i].animations.length; o++) {
+                        if (player.objects[i].animations[o] == b) {
+                            delete player.objects[i].animations[o]
+                        }
+                    }
                 }
                 player.objects[i].animations.push(a)
             }
@@ -165,7 +173,7 @@ export class LyricPlayer {
         this.lasttime = 0
         let player = this
         let move_wrapper = function (timestamp) {
-            let ms = (new Date()).getTime() - player.starttime,
+            const ms = (new Date()).getTime() - player.starttime,
                 t = ms / 1000,
                 dt = t - player.lasttime
             player.lasttime = t
