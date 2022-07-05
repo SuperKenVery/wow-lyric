@@ -8,6 +8,7 @@ const LineStates = {
     goingHistory: 2,
     history: 3
 }
+const lyric_line_blur_radius = 20
 class LyricLine {
     constructor(time, text = "Empty line", y, height, canvas, exittime, curves) {
         this.renderedText = Text(text, height, canvas.width * 0.7)
@@ -53,14 +54,15 @@ class LyricLine {
         }
     }
     create_blurcache() {
-        for (let i = 0; i <= 10; i++) {
+        for (let i = 0; i <= lyric_line_blur_radius; i++) {
             this.blurCache[i] = blur(this.renderedText, i)
         }
     }
 }
 
+const default_lyric_height = 80 * window.devicePixelRatio
 export class LyricPlayer {
-    constructor(canvas, lyrics_string, lyric_height = 160, space = 160, u = 100, g = 10) {
+    constructor(canvas, lyrics_string, lyric_height = default_lyric_height, space = default_lyric_height, u = 100, g = 10) {
         /*
         param space: The space between lines
         */
@@ -76,7 +78,7 @@ export class LyricPlayer {
         this.playing = false
 
         let size = resizeCurve.getCurve(this.canvas.height, 1)
-        let r = blurRadiusCurve.getCurve(this.canvas.height, 10)
+        let r = blurRadiusCurve.getCurve(this.canvas.height, lyric_line_blur_radius)
 
         this.objects.push(new LyricLine(0, "· · ·", this.space, this.h, this.canvas, 0, { size: size, r: r }))
         let lines = lyrics_string.split("\n\n")[1].split("\n")
@@ -99,25 +101,19 @@ export class LyricPlayer {
 
     move(t, dt) {
         //t: time since started playing, in seconds
-        const duration = 0.3
+        const duration = 0.6
         const l = this.objects[this.willplay_index]
         if (t >= l.time - duration) {
             this.objects[this.willplay_index - 1].state = LineStates.goingHistory
-            const shouldMove = this.objects[this.willplay_index - 1].height + this.space,
+            const targetMove = this.objects[this.willplay_index - 1].height + this.space,
                 player = this, starttime = t
             for (let i = this.willplay_index - 1;
                 i < this.objects.length;
                 i++) {
                 const onScreenIndex = i - (player.willplay_index - 1)
-                const targetMove = shouldMove
                 const k = 2 * targetMove / (duration ** 2),
-                    pos = function (x) {
-                        if (x <= 0) return 0
-                        else if (x <= duration / 2) return k * x ** 2
-                        else if (x <= duration) return targetMove - k * (x - duration) ** 2
-                        else return targetMove
-                    }
-                let lastxt=0
+                    pos = positionCurve.getCurve(duration, targetMove)
+                let lastxt = 0
                 const a = function (t, dt) {
                     //dt: time since last frame ( or, last call of this function )
                     const xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
@@ -125,7 +121,7 @@ export class LyricPlayer {
                         const x = pos(xt) - pos(lastxt)
                         player.objects[i].y -= x
                         lastxt = xt
-                    }else if (xt > duration) {
+                    } else if (xt > duration) {
                         const x = pos(xt) - pos(lastxt)
                         player.objects[i].y -= x
                         for (let o = 0; o < player.objects[i].animations.length; o++) {
@@ -232,5 +228,11 @@ let blurRadiusCurve = new Curve(function (x) {
     let d = c + 1
     let e = Math.max(d, 0)
     return e
+})
+let positionCurve = new Curve(function (x) {
+    if (x <= 0) return 0
+    else if (x <= 0.5) return 16 * x ** 5
+    else if (x <= 1) return 1 - 16 * (1 - x) ** 5
+    else return 1
 })
 

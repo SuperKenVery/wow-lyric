@@ -1,7 +1,6 @@
 /* jshint esversion: 9 */
 import { LyricPlayer } from './animation.js'
 import { Background } from './background.js'
-import { Text } from './gl.js'
 
 export async function main() {
     const lyricContext = lyricCanvas.getContext('2d')
@@ -9,9 +8,9 @@ export async function main() {
         console.log("Failed to get 2d context of lyric canvas")
     }
 
-    const bgContext = bgCanvas.getContext("2d")
+    const bgContext = bgCanvas.getContext("webgl")
     if (bgContext == null) {
-        console.log("Failed to get 2d context of background canvas")
+        console.log("Failed to get webgl context of background canvas")
     }
 
     startButton.innerHTML ="加载中 Loading"
@@ -25,8 +24,6 @@ export async function main() {
     const uploadControls=document.getElementById("upload-controls")
     uploadControls.style.display="none"
 
-    //const txt=Text("You just want attention, you don't want my heart",80,500)
-    //bgContext.putImageData(txt,0,0)
 }
 
 //var promise=main()
@@ -84,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
             img.src = imageurl
             img.onload = () => {
                 const tmpCanvas = document.createElement("canvas")
+                tmpCanvas.id="tmp canvas for reading the album image"
                 tmpCanvas.width = img.width
                 tmpCanvas.height = img.height
                 const tmpCtx = tmpCanvas.getContext("2d")

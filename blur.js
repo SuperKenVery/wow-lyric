@@ -1,12 +1,19 @@
 /* jshint esversion: 9 */
 import * as twgl from './twgl-full.module.js'
-const gl = document.createElement("canvas").getContext("webgl")
+const ggl = document.createElement("canvas").getContext("webgl") //global gl
+ggl.canvas.id="global canvas for blur.js"
 //const gl=document.getElementById("lyric").getContext("webgl")
 
 
-function createBlurProgram(r) {
-    const xProgram = twgl.createProgramInfo(gl, [
-        `
+let blurProgramInfos = {}
+function getBlurProgram(r, gl) {
+    if (blurProgramInfos[gl.canvas.id] == undefined) {
+        blurProgramInfos[gl.canvas.id] = []
+    }
+    const glBlurPIs = blurProgramInfos[gl.canvas.id]
+    if (glBlurPIs[r] == undefined) {
+        const xProgramInfo = twgl.createProgramInfo(gl, [
+            `
         //vertex shader
         attribute vec2 a_position;
         attribute vec2 a_textureCoordinate;
@@ -21,7 +28,7 @@ function createBlurProgram(r) {
             v_textureCoordinate=a_textureCoordinate;
         }
         `,
-        `
+            `
         precision mediump float;
         precision highp int;
 
@@ -47,9 +54,9 @@ function createBlurProgram(r) {
             gl_FragColor=pixelSum;
         }
         `
-    ])
-    const yProgram = twgl.createProgramInfo(gl, [
-        `
+        ])
+        const yProgramInfo = twgl.createProgramInfo(gl, [
+            `
         //vertex shader
         attribute vec2 a_position;
         attribute vec2 a_textureCoordinate;
@@ -64,7 +71,7 @@ function createBlurProgram(r) {
             v_textureCoordinate=a_textureCoordinate;
         }
         `,
-        `
+            `
         precision mediump float;
         precision highp int;
 
@@ -90,32 +97,30 @@ function createBlurProgram(r) {
             gl_FragColor=pixelSum;
         }
         `
-    ])
-
-    return {
-        x: xProgram,
-        y: yProgram,
+        ])
+        glBlurPIs[r] = {
+            x: xProgramInfo,
+            y: yProgramInfo,
+        }
     }
+
+    return glBlurPIs[r]
 
 }
 
-let blurProgramInfos = []
 
 export function blur(sourceImage, r) {
-    if(r==0){
+    if (r == 0) {
         return sourceImage
     }
-    gl.canvas.width = sourceImage.width + 2 * r
-    gl.canvas.height = sourceImage.height + 2 * r
+    ggl.canvas.width = sourceImage.width + 2 * r
+    ggl.canvas.height = sourceImage.height + 2 * r
 
-    if (blurProgramInfos[r] == undefined) {
-        blurProgramInfos[r] = createBlurProgram(r)
-    }
-    const blurProgramInfo = blurProgramInfos[r]
+    const blurProgramInfo = getBlurProgram(r, ggl)
 
-    const xfb = twgl.createFramebufferInfo(gl, [
+    const xfb = twgl.createFramebufferInfo(ggl, [
         {
-            format: gl.RGBA
+            format: ggl.RGBA
         }
     ], sourceImage.width + 2 * r, sourceImage.height)
     //Attributes
@@ -123,41 +128,45 @@ export function blur(sourceImage, r) {
     const arraysx = {
         a_position: {
             numComponents: 2,
-            data: [-1, -1,
-            -1, 1,
+            data: [
+                -1, -1,
+                -1, 1,
                 1, -1,
-                1, 1],
+                1, 1
+            ],
         },
         a_textureCoordinate: {
             numComponents: 2,
             data: [-overflowx, 0, -overflowx, 1, 1 + overflowx, 0, 1 + overflowx, 1],
         }
     }
-    const bufferInfox = twgl.createBufferInfoFromArrays(gl, arraysx)
+    const bufferInfox = twgl.createBufferInfoFromArrays(ggl, arraysx)
     const arraysy = {
         a_position: {
             numComponents: 2,
-            data: [-1, -1,
-            -1, 1,
+            data: [
+                -1, -1,
+                -1, 1,
                 1, -1,
-                1, 1],
+                1, 1
+            ],
         },
         a_textureCoordinate: {
             numComponents: 2,
             data: [-overflowx, -overflowy, -overflowx, 1 + overflowy, 1 + overflowx, -overflowy, 1 + overflowx, 1 + overflowy],
         }
     }
-    const bufferInfoy = twgl.createBufferInfoFromArrays(gl, arraysy)
+    const bufferInfoy = twgl.createBufferInfoFromArrays(ggl, arraysy)
 
     //Textures
     let matrix = getGaussiumWeightMatrix(r)
-    let textures = twgl.createTextures(gl, {
+    let textures = twgl.createTextures(ggl, {
         srcImage: {
             src: sourceImage,
         },
         gaussiumWeightMatrix: {
             src: matrix.matrix,
-            format: gl.LUMINANCE,
+            format: ggl.LUMINANCE,
             width: 2 * r + 1,
         }
     })
@@ -177,38 +186,75 @@ export function blur(sourceImage, r) {
         matrix_sum: matrix.sum
     }
 
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
-    twgl.bindFramebufferInfo(gl, xfb)
-    gl.useProgram(blurProgramInfo.x.program)
-    twgl.setBuffersAndAttributes(gl, blurProgramInfo.x, bufferInfox)
+    ggl.viewport(0, 0, ggl.drawingBufferWidth, ggl.drawingBufferHeight)
+    twgl.bindFramebufferInfo(ggl, xfb)
+    ggl.useProgram(blurProgramInfo.x.program)
+    twgl.setBuffersAndAttributes(ggl, blurProgramInfo.x, bufferInfox)
     twgl.setUniforms(blurProgramInfo.x, uniformsx)
-    twgl.drawBufferInfo(gl, bufferInfox, gl.TRIANGLE_STRIP)
+    twgl.drawBufferInfo(ggl, bufferInfox, ggl.TRIANGLE_STRIP)
 
-    twgl.bindFramebufferInfo(gl, null)
-    gl.useProgram(blurProgramInfo.y.program)
-    twgl.setBuffersAndAttributes(gl, blurProgramInfo.y, bufferInfoy)
+    twgl.bindFramebufferInfo(ggl, null)
+    ggl.useProgram(blurProgramInfo.y.program)
+    twgl.setBuffersAndAttributes(ggl, blurProgramInfo.y, bufferInfoy)
     twgl.setUniforms(blurProgramInfo.y, uniformsy)
-    twgl.drawBufferInfo(gl, bufferInfoy, gl.TRIANGLE_STRIP)
+    twgl.drawBufferInfo(ggl, bufferInfoy, ggl.TRIANGLE_STRIP)
 
-    const result = getImageData(gl)
+    const result = getImageData(ggl)
 
     {
-        gl.deleteBuffer(bufferInfox.attribs.a_position.buffer)
-        gl.deleteBuffer(bufferInfox.attribs.a_textureCoordinate.buffer)
-        gl.deleteBuffer(bufferInfoy.attribs.a_position.buffer)
-        gl.deleteBuffer(bufferInfoy.attribs.a_textureCoordinate.buffer)
-        gl.deleteTexture(textures.srcImage)
-        gl.deleteTexture(textures.gaussiumWeightMatrix)
-        gl.deleteTexture(xfb.attachments[0])
-        gl.deleteFramebuffer(xfb.framebuffer)
+        ggl.deleteBuffer(bufferInfox.attribs.a_position.buffer)
+        ggl.deleteBuffer(bufferInfox.attribs.a_textureCoordinate.buffer)
+        ggl.deleteBuffer(bufferInfoy.attribs.a_position.buffer)
+        ggl.deleteBuffer(bufferInfoy.attribs.a_textureCoordinate.buffer)
+        ggl.deleteTexture(textures.srcImage)
+        ggl.deleteTexture(textures.gaussiumWeightMatrix)
+        ggl.deleteTexture(xfb.attachments[0])
+        ggl.deleteFramebuffer(xfb.framebuffer)
     }
 
     return result
 }
+export function textureBlur(gl, src, tmp, dst, bufferInfos, uniforms, r) {
+    /* A blur that happens totally inside GPU
+    Image source and blur destinations are textures
+
+    src, tmp, dst: twgl.FrameBufferInfo
+
+    bufferInfo={
+        x: twgl.createBufferInfoFromArrays(...),
+        y: twgl.createBufferInfoFromArrays(...)
+    }
+    uniforms={
+        x:{
+            uniform: value
+        },
+        y:{
+            uniform:value
+        }
+    }
+    */
+    const blurProgram = getBlurProgram(r, gl)
+
+    twgl.bindFramebufferInfo(gl,tmp)
+    gl.useProgram(blurProgram.x.program)
+    twgl.setBuffersAndAttributes(gl,blurProgram.x,bufferInfos.x)
+    uniforms.x.u_image=src.attachments[0]
+    uniforms.x.u_textureSize=[src.width,src.height]
+    twgl.setUniforms(blurProgram.x,uniforms.x)
+    twgl.drawBufferInfo(gl,bufferInfos.x,gl.TRIANGLE_STRIP)
+
+    twgl.bindFramebufferInfo(gl, dst)
+    gl.useProgram(blurProgram.y.program)
+    twgl.setBuffersAndAttributes(gl,blurProgram.y,bufferInfos.y)
+    uniforms.y.u_image = tmp.attachments[0]
+    uniforms.y.u_textureSize = [tmp.width, tmp.height]
+    twgl.setUniforms(blurProgram.y, uniforms.y)
+    twgl.drawBufferInfo(gl, bufferInfos.y, gl.TRIANGLE_STRIP)
+}
 
 
 let gaussiumWeightMatrixCache = []
-function getGaussiumWeightMatrix(radius) {
+export function getGaussiumWeightMatrix(radius) {
     let gaussiumWeight = null, gaussiumWeightSum = 0
     if (gaussiumWeightMatrixCache[radius] != undefined) {
         gaussiumWeight = gaussiumWeightMatrixCache[radius].gaussiumWeight
@@ -244,9 +290,9 @@ function getGaussiumWeightMatrix(radius) {
 }
 
 function getImageData(gl) {
-    let pixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4)
-    gl.readPixels(0, 0, gl.canvas.width, gl.canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    let pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4)
+    gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
     let clampedPixels = new Uint8ClampedArray(pixels)
-    let imagedata = new ImageData(clampedPixels, gl.canvas.width, gl.canvas.height)
+    let imagedata = new ImageData(clampedPixels, gl.drawingBufferWidth, gl.drawingBufferHeight)
     return imagedata
 }

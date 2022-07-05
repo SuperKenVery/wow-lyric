@@ -9,33 +9,37 @@
  */
 export function Text(text, fontsize, width) {
     let tmp_canvas = document.createElement('canvas')
+    tmp_canvas.id = "tmp canvas for Text()"
     let ctx = tmp_canvas.getContext('2d')
-    const font = "700 " + String(fontsize) + "px Arial"
-    ctx.textBaseline = 'top'
-    ctx.font = font
+    const setStyle = function () {
+        const font = "700 " + String(fontsize) + "px Arial"
+        ctx.textBaseline = 'top'
+        ctx.font = font
+        ctx.fillStyle = "white"
+        ctx.textAlign = 'center'
+    }
 
     tmp_canvas.width = width
-    const lines = wrap(text, ctx, font)
-    const height = fontsize + 20 //The distance between each line's top line
+    const lines = wrap(text, ctx, setStyle)
+    setStyle()
+    const measure = ctx.measureText(text)
+    const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent + 20 //The distance between each line's top line
     tmp_canvas.height = lines.length * height
 
-    ctx.textBaseline = 'top'
-    ctx.textAlign='center'
-    ctx.font = font
-    ctx.fillStyle = "white"
-    const x=width/2
+    setStyle()
+    const x = width / 2
     for (let line_index = 0; line_index < lines.length; line_index++) {
         const line = lines[line_index]
-        ctx.fillText(line, x, height * line_index)
+        ctx.fillText(line, x, height * line_index + measure.actualBoundingBoxAscent)
     }
 
     return ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)
 }
 
-function wrap(text, ctx, font) {
+function wrap(text, ctx, styleSetter) {
     const width = ctx.canvas.width,
         measure = function (txt) {
-            ctx.font = font
+            styleSetter()
             const metric = ctx.measureText(txt)
             const width = metric.actualBoundingBoxLeft + metric.actualBoundingBoxRight
             return width
@@ -178,7 +182,7 @@ const blurProgramResource = {
         //canvas size
         gl.canvas.width = imagedata.width + 2 * radius
         gl.canvas.height = imagedata.height + 2 * radius
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
         //===Positions===
         let positionBuffer = gl.createBuffer()
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
