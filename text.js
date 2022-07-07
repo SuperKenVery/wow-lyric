@@ -28,7 +28,7 @@ export function Text(text, fontsize, width) {
     tmp_canvas.height = lines.length * height
 
     setStyle()
-    const x = width / 2
+    const x = tmp_canvas.width / 2
     for (let line_index = 0; line_index < lines.length; line_index++) {
         const line = lines[line_index]
         ctx.fillText(line, x, height * line_index + measure.actualBoundingBoxAscent + lyric_line_blur_radius)

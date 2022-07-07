@@ -34,7 +34,7 @@ class LyricLine {
             {
                 attachment: texture
             }
-        ])
+        ], this.renderedTextImageData.width, this.renderedTextImageData.height)
         const xr = this.width / this.player.blurTmpFb.width, yr = this.height / this.player.blurTmpFb.height //x ratio, y ratio
         const textureCoordinateData = [
             0, 1,
@@ -124,8 +124,6 @@ class LyricLine {
             } else {
                 put(this.gl, targetPositions, this.textFb, null, alpha)
             }
-
-
         }
     }
 }
@@ -166,7 +164,7 @@ export class LyricPlayer {
                     [minute_string, second_string] = time_string.split(':'),
                     [minute, second] = [Number(minute_string), Number(second_string)],
                     time = minute * 60 + second
-                for (let i in [lyric_line_raw, time_raw, lyric_line_content, minute_string, second_string]) {
+                for (let i of [lyric_line_raw, time_raw, lyric_line_content, minute_string, second_string]) {
                     if (i == undefined) {
                         throw "Invalid lyric line"
                     }
@@ -195,6 +193,9 @@ export class LyricPlayer {
         for (let line of this.lyricLines) {
             line.initWebglResources()
         }
+        //The framebuffer which was created last would be empty
+        //Bug of twgl.js?
+        twgl.createFramebufferInfo(this.gl)
 
         //TODO: support exittime
     }
@@ -202,54 +203,45 @@ export class LyricPlayer {
     move(t, dt) {
         //t: time since started playing, in seconds
         const duration = 0.6
-        const l = this.lyricLines[this.willplay_index]
-        if (t >= l.time - duration) {
-            this.lyricLines[this.willplay_index - 1].state = LineStates.goingHistory
-            const targetMove = this.lyricLines[this.willplay_index - 1].height + this.space,
-                player = this, starttime = t
-            for (let i = this.willplay_index - 1;
-                i < this.lyricLines.length;
-                i++) {
-                const onScreenIndex = i - (player.willplay_index - 1)
-                const k = 2 * targetMove / (duration ** 2),
-                    pos = positionCurve.getCurve(duration, targetMove)
-                let lastxt = 0
-                const a = function (t, dt) {
-                    //dt: time since last frame ( or, last call of this function )
-                    const xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
-                    if (xt > 0 && xt <= duration) {
-                        const x = pos(xt) - pos(lastxt)
-                        player.lyricLines[i].y -= x
-                        lastxt = xt
-                    } else if (xt > duration) {
-                        const x = pos(xt) - pos(lastxt)
-                        player.lyricLines[i].y -= x
-                        for (let o = 0; o < player.lyricLines[i].animations.length; o++) {
-                            if (player.lyricLines[i].animations[o] == a) {
-                                delete player.lyricLines[i].animations[o]
+        if (this.willplay_index < this.lyricLines.length) {
+            const l = this.lyricLines[this.willplay_index]
+            if (t >= l.time - duration) {
+                this.lyricLines[this.willplay_index - 1].state = LineStates.goingHistory
+                const targetMove = this.lyricLines[this.willplay_index - 1].height + this.space,
+                    player = this, starttime = t
+                for (let i = this.willplay_index - 1;
+                    i < this.lyricLines.length;
+                    i++) {
+                    const onScreenIndex = i - (player.willplay_index - 1)
+                    const k = 2 * targetMove / (duration ** 2),
+                        pos = positionCurve.getCurve(duration, targetMove)
+                    let lastxt = 0
+                    const a = function (t, dt) {
+                        //dt: time since last frame ( or, last call of this function )
+                        const xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
+                        if (xt > 0 && xt <= duration) {
+                            const x = pos(xt) - pos(lastxt)
+                            player.lyricLines[i].y -= x
+                            lastxt = xt
+                        } else if (xt > duration) {
+                            const x = pos(xt) - pos(lastxt)
+                            player.lyricLines[i].y -= x
+                            for (let o = 0; o < player.lyricLines[i].animations.length; o++) {
+                                if (player.lyricLines[i].animations[o] == a) {
+                                    delete player.lyricLines[i].animations[o]
+                                }
                             }
+                            if (player.lyricLines[i] == l) l.state = LineStates.current
                         }
-                        if (player.lyricLines[i] == l) l.state = LineStates.current
+                        //else if xt<=0: stay still
                     }
-                    //else if xt<=0: stay still
+                    player.lyricLines[i].animations.push(a)
                 }
-                const b = function (t, dt) {
-                    player.lyricLines[i].y -= targetMove
-                    for (let o = 0; o < player.lyricLines[i].animations.length; o++) {
-                        if (player.lyricLines[i].animations[o] == b) {
-                            delete player.lyricLines[i].animations[o]
-                        }
-                    }
-                }
-                player.lyricLines[i].animations.push(a)
+                this.willplay_index++;
             }
-            this.willplay_index++;
-            if (this.willplay_index >= this.lyricLines.length) this.playing = false
         }
 
-        for (let i = 0; i < this.lyricLines.length; i++) {
-            this.lyricLines[i].move(t, dt)
-        }
+        for (let i of this.lyricLines) i.move(t, dt)
     }
 
     render() {
