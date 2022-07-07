@@ -1,7 +1,7 @@
 /* jshint esversion: 9 */
-import { getGaussiumWeightMatrix, textureBlur, put } from "./blur.js"
+import { getGaussiumWeightMatrix, textureBlur, put } from "./gl.js"
 import * as twgl from './twgl-full.module.js'
-import { LyricPlayer } from "./animation.js"
+import { LyricPlayer } from "./lyrics.js"
 function random(min, max) {
     let span = max - min
     let r = Math.random() * span + min
