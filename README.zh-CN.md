@@ -1,10 +1,17 @@
 # Wow-Lyric
 
 ## 简介
+<<<<<<< HEAD
 ![输入图片说明](.gitee/%E5%9B%BE%E7%89%87.png)
+=======
+[录屏 07-07-2022 02:34:36 PM.webm](https://user-images.githubusercontent.com/39673849/177709763-58eb0dda-4081-48f3-a76c-53de5b11391f.webm)
+
+
+>>>>>>> b416bda5eb31122febc9af8115dd1b7c5554cbb1
 华丽的歌词动画
 
 如果用过苹果的音乐app，就会觉得很熟悉。
+
 
 ## 使用
 
