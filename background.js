@@ -1,6 +1,5 @@
 /* jshint esversion: 9 */
-import { resize } from "./gl.js"
-import { getGaussiumWeightMatrix, textureBlur } from "./blur.js"
+import { getGaussiumWeightMatrix, textureBlur, put } from "./blur.js"
 import * as twgl from './twgl-full.module.js'
 import { LyricPlayer } from "./animation.js"
 function random(min, max) {
@@ -70,7 +69,7 @@ export class Background {
         {
             const w = image.width, h = image.height
             const canvas = document.createElement("canvas")
-            canvas.id="tmp canvas for cutting the alum artwork"
+            canvas.id = "tmp canvas for cutting the alum artwork"
             canvas.width = w
             canvas.height = h
             const ctx = canvas.getContext("2d")
@@ -91,7 +90,7 @@ export class Background {
 
         //WebGL put
         const shrink = 20 //the noBlurFb could be smaller
-        let put, noBlurFb
+        let spinAndPut, noBlurFb
         {
             const putProgramInfo = twgl.createProgramInfo(gl, [
                 `
@@ -135,6 +134,13 @@ export class Background {
                     src: image
                 },
             })
+            const fbs = {
+                ul: twgl.createFramebufferInfo(gl, [{ attachment: textures.ul }]),
+                ur: twgl.createFramebufferInfo(gl, [{ attachment: textures.ur }]),
+                bl: twgl.createFramebufferInfo(gl, [{ attachment: textures.bl }]),
+                br: twgl.createFramebufferInfo(gl, [{ attachment: textures.br }]),
+                bg: twgl.createFramebufferInfo(gl, [{ attachment: textures.bg }])
+            }
 
             noBlurFb = twgl.createFramebufferInfo(gl, [
                 {
@@ -142,8 +148,7 @@ export class Background {
                 }
             ], gl.canvas.width / shrink, gl.canvas.height / shrink)
 
-            put = function (angle, bgPos, imgPos, part, srcSize) {
-                const t = textures[part]
+            spinAndPut = function (angle, bgPos, imgPos, part, srcSize) {
                 const w = srcSize[0], h = srcSize[1], c = Math.cos(angle), s = Math.sin(angle)
                 const rawPos = [
                     [-imgPos[0], h - imgPos[1]],
@@ -164,151 +169,23 @@ export class Background {
                     targetPositions.push(pos[0])
                     targetPositions.push(pos[1])
                 }
-                const arrays = {
-                    a_targetPos: {
-                        numComponents: 2,
-                        data: targetPositions,
-                    },
-                    a_srcPos: {
-                        numComponents: 2,
-                        data: [
-                            0, 0,
-                            0, 1,
-                            1, 0,
-                            1, 1,
-                        ]
-                    }
-                }
-                const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays)
-                const uniforms = {
-                    targetSize: [gl.drawingBufferWidth, gl.drawingBufferHeight],
-                    srcImage: t,
-                }
-
-                twgl.bindFramebufferInfo(gl, noBlurFb)
-                //twgl.bindFramebufferInfo(gl)
-                //gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
-                gl.useProgram(putProgramInfo.program)
-                twgl.setBuffersAndAttributes(gl, putProgramInfo, bufferInfo)
-                twgl.setUniforms(putProgramInfo, uniforms)
-                twgl.drawBufferInfo(gl, bufferInfo, gl.TRIANGLE_STRIP)
-                gl.deleteBuffer(bufferInfo.a_targetPos)
-                gl.deleteBuffer(bufferInfo.a_srcPos)
+                put(gl, targetPositions, fbs[part], noBlurFb)
 
             }
         }
-        this.put = put
+        this.spinAndPut = spinAndPut
 
         //WebGL blur
         let blur
         {
             const blur_radius = 500 / shrink
-            const secondary_radius = 5
-            //Program
-            const xProgram = twgl.createProgramInfo(gl, [
-                `
-                //vertex shader
-                attribute vec2 a_position;
-                attribute vec2 a_textureCoordinate;
-
-                uniform int r;
-
-                varying vec2 v_textureCoordinate;
-                void main(){
-                    gl_Position=vec4(a_position,0,1);
-
-                    //For fragment shader
-                    v_textureCoordinate=a_textureCoordinate;
-                }
-                `,
-                `
-                precision mediump float;
-                precision highp int;
-
-                uniform sampler2D u_image;
-                uniform vec2 u_textureSize;
-                uniform sampler2D matrix;//Must be (2*maxR+1)x(2*maxR+1), type LUMINANCE
-                uniform float matrix_sum;//Used after adding up the sum. Devide by it.
-
-                varying vec2 v_textureCoordinate;
-
-                void main(){
-                    vec2 onePixel=vec2(1,1)/u_textureSize;//a pixel of image
-                    vec2 onePlace=vec2(1,1)/vec2(2*${blur_radius}+1,2*${blur_radius}+1);//a place of matrix
-                    vec4 pixelSum=vec4(0,0,0,0);
-                    //Blur here!
-                    for(int matrix_x=-${blur_radius};matrix_x<=${blur_radius};matrix_x++){
-                        float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_x,0))[0];
-                        vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(matrix_x,0));
-                        pixelSum+=pixel*(weight/matrix_sum);
-                        //we can't pass float but only int in texture
-                        //so devide in advance to prevent overflow
-                    }
-                    gl_FragColor=pixelSum;
-                }
-                `
-            ])
-            const yProgram = twgl.createProgramInfo(gl, [
-                `
-                //vertex shader
-                attribute vec2 a_position;
-                attribute vec2 a_textureCoordinate;
-
-                uniform int r;
-
-                varying vec2 v_textureCoordinate;
-                void main(){
-                    gl_Position=vec4(a_position,0,1);
-
-                    //For fragment shader
-                    v_textureCoordinate=a_textureCoordinate;
-                }
-                `,
-                `
-                precision mediump float;
-                precision highp int;
-
-                uniform sampler2D u_image;
-                uniform vec2 u_textureSize;
-                uniform sampler2D matrix;//Must be (2*maxR+1)x(2*maxR+1), type LUMINANCE
-                uniform float matrix_sum;//Used after adding up the sum. Devide by it.
-
-                varying vec2 v_textureCoordinate;
-
-                void main(){
-                    vec2 onePixel=vec2(1,1)/u_textureSize;//a pixel of image
-                    vec2 onePlace=vec2(1,1)/vec2(2*${blur_radius}+1,2*${blur_radius}+1);//a place of matrix
-                    vec4 pixelSum=vec4(0,0,0,0);
-                    //Blur here!
-                    for(int matrix_y=-${blur_radius};matrix_y<=${blur_radius};matrix_y++){
-                        float weight=texture2D(matrix,vec2(0.5,0.5)+onePlace*vec2(matrix_y,0))[0];
-                        vec4 pixel=texture2D(u_image,v_textureCoordinate+onePixel*vec2(0,matrix_y));
-                        pixelSum+=pixel*(weight/matrix_sum);
-                        //we can't pass float but only int in texture
-                        //so devide in advance to prevent overflow
-                    }
-                    gl_FragColor=pixelSum;
-                }
-                `
-            ])
+            const secondary_radius = 10
             //FrameBuffer
-            const blurTmpFb = twgl.createFramebufferInfo(gl, [
-                {
-                    format: gl.RGBA
-                }
-            ], gl.canvas.width, gl.canvas.height),
-                blurTmpShrinkedFb = twgl.createFramebufferInfo(gl, [
-                    {
-                        format: gl.RGBA
-                    }
-                ], gl.canvas.width / shrink, gl.canvas.height / shrink),
-                blurredShrinkedFb = twgl.createFramebufferInfo(gl, [
-                    {
-                        format: gl.RGBA
-                    }
-                ], gl.canvas.width / shrink, gl.canvas.height / shrink)
+            const blurTmpFb = twgl.createFramebufferInfo(gl, [{ format: gl.RGBA }], gl.canvas.width, gl.canvas.height),
+                blurTmpShrinkedFb = twgl.createFramebufferInfo(gl, [{ format: gl.RGBA }], gl.canvas.width / shrink, gl.canvas.height / shrink),
+                blurredShrinkedFb = twgl.createFramebufferInfo(gl, [{ format: gl.RGBA }], gl.canvas.width / shrink, gl.canvas.height / shrink)
             //Attributes
-            const arraysx = {
+            const arrays = {
                 a_position: {
                     numComponents: 2,
                     data: [
@@ -328,31 +205,10 @@ export class Background {
                     ],
                 }
             }
-            const bufferInfox = twgl.createBufferInfoFromArrays(gl, arraysx)
-            const arraysy = {
-                a_position: {
-                    numComponents: 2,
-                    data: [
-                        -1, -1,
-                        -1, 1,
-                        1, -1,
-                        1, 1
-                    ],
-                },
-                a_textureCoordinate: {
-                    numComponents: 2,
-                    data: [
-                        0, 0,
-                        0, 1,
-                        1, 0,
-                        1, 1
-                    ],
-                }
-            }
-            const bufferInfoy = twgl.createBufferInfoFromArrays(gl, arraysy)
+            const bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays)
             const bufferInfos = {
-                x: bufferInfox,
-                y: bufferInfoy
+                x: bufferInfo,
+                y: bufferInfo
             }
             //Textures
             const matrix = getGaussiumWeightMatrix(blur_radius)
@@ -373,33 +229,25 @@ export class Background {
             })
             //Uniforms
             //u_image and u_textureSize will be updated in blur_once
+            const uniform = {
+                u_image: 0,
+                u_textureSize: [0, 0],
+                matrix: textures.matrix,
+                matrix_sum: matrix.sum
+            }
             const uniforms = {
-                x: {
-                    u_image: 0,
-                    u_textureSize: [0, 0],
-                    matrix: textures.matrix,
-                    matrix_sum: matrix.sum
-                },
-                y: {
-                    u_image: 0,
-                    u_textureSize: [0, 0],
-                    matrix: textures.matrix,
-                    matrix_sum: matrix.sum
-                }
+                x: uniform,
+                y: uniform
+            }
+            const secondary_uniform = {
+                u_image: 0,
+                u_textureSize: [0, 0],
+                matrix: secondary_textures.matrix,
+                matrix_sum: secondary_matrix.sum
             }
             const secondary_uniforms = {
-                x: {
-                    u_image: 0,
-                    u_textureSize: [0, 0],
-                    matrix: secondary_textures.matrix,
-                    matrix_sum: secondary_matrix.sum
-                },
-                y: {
-                    u_image: 0,
-                    u_textureSize: [0, 0],
-                    matrix: secondary_textures.matrix,
-                    matrix_sum: secondary_matrix.sum
-                }
+                x: secondary_uniform,
+                y: secondary_uniform
             }
 
             blur = function () {
@@ -412,8 +260,8 @@ export class Background {
 
         //Create Spinners
         this.spinners = [
-            new Spinner(ul, put, gl, 'ul'), new Spinner(ur, put, gl, 'ur'),
-            new Spinner(bl, put, gl, 'bl'), new Spinner(br, put, gl, 'br'),
+            new Spinner(ul, this.spinAndPut, gl, 'ul'), new Spinner(ur, this.spinAndPut, gl, 'ur'),
+            new Spinner(bl, this.spinAndPut, gl, 'bl'), new Spinner(br, this.spinAndPut, gl, 'br'),
         ]
     }
     move(t, dt) {
@@ -422,7 +270,7 @@ export class Background {
         }
     }
     render() {
-        this.put(0, [0, 0], [0, 0], 'bg', this.srcSize)
+        this.spinAndPut(0, [0, 0], [0, 0], 'bg', this.srcSize)
         for (let i of this.spinners) {
             i.render()
         }
@@ -438,7 +286,7 @@ export class Background {
         */
         this.starttime = (new Date()).getTime() - time * 1000
         this.lasttime = 0
-        this.playing=true
+        this.playing = true
         let bg = this
         let move_wrapper = function (timestamp) {
             let ms = (new Date()).getTime() - bg.starttime,
@@ -448,7 +296,7 @@ export class Background {
 
             bg.move(t, dt)
             bg.render()
-            if(bg.playing){
+            if (bg.playing) {
                 window.requestAnimationFrame(move_wrapper)
             }
         }

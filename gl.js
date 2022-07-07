@@ -7,6 +7,7 @@
  * descript how to connect buffers, locations and
  * variables in shader sources well.
  */
+import { lyric_line_blur_radius } from "./animation.js"
 export function Text(text, fontsize, width) {
     let tmp_canvas = document.createElement('canvas')
     tmp_canvas.id = "tmp canvas for Text()"
@@ -19,18 +20,18 @@ export function Text(text, fontsize, width) {
         ctx.textAlign = 'center'
     }
 
-    tmp_canvas.width = width
+    tmp_canvas.width = width + 2 * lyric_line_blur_radius
     const lines = wrap(text, ctx, setStyle)
     setStyle()
     const measure = ctx.measureText(text)
-    const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent + 20 //The distance between each line's top line
+    const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent + 20 + 2 * lyric_line_blur_radius //The distance between each line's top line
     tmp_canvas.height = lines.length * height
 
     setStyle()
     const x = width / 2
     for (let line_index = 0; line_index < lines.length; line_index++) {
         const line = lines[line_index]
-        ctx.fillText(line, x, height * line_index + measure.actualBoundingBoxAscent)
+        ctx.fillText(line, x, height * line_index + measure.actualBoundingBoxAscent + lyric_line_blur_radius)
     }
 
     return ctx.getImageData(0, 0, tmp_canvas.width, tmp_canvas.height)

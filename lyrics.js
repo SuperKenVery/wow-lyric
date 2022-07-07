@@ -3,11 +3,6 @@ import { LyricPlayer } from './animation.js'
 import { Background } from './background.js'
 
 export async function main() {
-    const lyricContext = lyricCanvas.getContext('2d')
-    if (lyricContext == null) {
-        console.log("Failed to get 2d context of lyric canvas")
-    }
-
     const bgContext = bgCanvas.getContext("webgl")
     if (bgContext == null) {
         console.log("Failed to get webgl context of background canvas")

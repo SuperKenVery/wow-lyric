@@ -1,61 +1,131 @@
 /* jshint esversion: 9 */
-let debug = true
-import { blur } from "./blur.js"
-import { resize, Text } from "./gl.js"
+import { getGaussiumWeightMatrix, textureBlur, put } from "./blur.js"
+import { Text } from "./gl.js"
+import * as twgl from './twgl-full.module.js'
 const LineStates = {
     future: 0,
     current: 1,
     goingHistory: 2,
     history: 3
 }
-const lyric_line_blur_radius = 20
+export const lyric_line_blur_radius = 20
 class LyricLine {
-    constructor(time, text = "Empty line", y, height, canvas, exittime, curves) {
-        this.renderedText = Text(text, height, canvas.width * 0.7)
-
+    constructor(time, text, y, height, exittime, curves, player) {
+        this.gl = player.gl
+        this.canvas = this.gl.canvas
+        this.renderedTextImageData = Text(text, height, this.canvas.width * 0.7)
         this.time = time
         this.text = text
-        this.height = this.renderedText.height
-        this.canvas = canvas
-        this.ctx = canvas.getContext("2d")
+        this.height = this.renderedTextImageData.height
+        this.width = this.renderedTextImageData.width
         this.exittime = exittime
         this.y = y
+        /*For y, we take downwards as positive and upwards as negative.*/
         this.curves = curves
+        this.player = player
 
-        this.blurCache = {}
         this.animations = []
         this.state = LineStates.future
+    }
+    initWebglResources() {
+        //Some code in this block requires this.player.blurTmpFb, which can't be created until we know the max width/height of all the lyric lines, which is calculated in the initialization process of each lyric line. So we can't do this at initialization.
+        const texture = twgl.createTexture(this.gl, { src: this.renderedTextImageData })
+        this.textFb = twgl.createFramebufferInfo(this.gl, [
+            {
+                attachment: texture
+            }
+        ])
+        const xr = this.width / this.player.blurTmpFb.width, yr = this.height / this.player.blurTmpFb.height //x ratio, y ratio
+        const textureCoordinateData = [
+            0, 1,
+            0, 1 - yr,
+            xr, 1,
+            xr, 1 - yr
+        ]
+        this.webglResources = {
+            blur: {
+                y_textureCoordinateData: textureCoordinateData,
+                bufferInfos: {
+                    x: twgl.createBufferInfoFromArrays(this.gl, {
+                        a_position: {
+                            numComponents: 2,
+                            data: [
+                                -1, 1,
+                                -1, 1 - 2 * yr,
+                                -1 + 2 * xr, 1,
+                                -1 + 2 * xr, 1 - 2 * yr
+                            ]
+                        },
+                        a_textureCoordinate: {
+                            numComponents: 2,
+                            data: [
+                                0, 1,
+                                0, 0,
+                                1, 1,
+                                1, 0
+                            ],
+                        }
+                    }),
+                    y: twgl.createBufferInfoFromArrays(this.gl, {
+                        a_position: {
+                            numComponents: 2,
+                            data: [
+                                -1, 1,
+                                -1, 1 - 2 * yr,
+                                -1 + 2 * xr, 1,
+                                -1 + 2 * xr, 1 - 2 * yr
+                            ]
+                        },
+                        a_textureCoordinate: {
+                            numComponents: 2,
+                            data: textureCoordinateData
+                        }
+                    })
+                }
+            }
+        }
 
-        /*For y, we take downwards as positive and upwards as negative.*/
-        this.create_blurcache()
+
     }
     move(t, dt) {
         if (this.state != LineStates.history) {
             this.animations.forEach(animation => {
                 animation(t, dt)
             });
-            /*if (this.state == LineStates.goingHistory && this.animations[this.animations.length - 1] == undefined) {
-                this.y = -this.height
-                this.state = LineStates.history
-            }*/
         }
     }
     render() {
-        if (this.y < this.canvas.height && this.y > -this.renderedText.height) {
-            let blurred
-            if (this.state != LineStates.current) {
-                blurred = this.blurCache[Math.trunc(this.curves.r(this.y))]
+        if (this.y < this.canvas.height && this.y > -this.renderedTextImageData.height) {
+            const r = Math.trunc(this.curves.r(Math.abs(this.y - this.player.space)))
+            const resize_to = this.curves.size(Math.abs(this.y - this.player.space)), alpha = this.curves.alpha(Math.abs(this.y - this.player.space))
+            const left = this.gl.drawingBufferWidth / 2 - this.width * resize_to / 2,
+                right = this.gl.drawingBufferWidth / 2 + this.width * resize_to / 2,
+                h = this.gl.canvas.height
+            const targetPositions = [
+                left, h - (this.y + this.height * resize_to),
+                left, h - this.y,
+                right, h - (this.y + this.height * resize_to),
+                right, h - this.y,
+            ]
+            const srcPos = this.webglResources.blur.y_textureCoordinateData
+            if (r > 0) {
+                const uniform = {
+                    u_image: 0, //To be filled by textureBlur
+                    u_textureSize: [0, 0], //To be filled by textureBlur
+                    matrix: this.player.matrixTextures[r],
+                    matrix_sum: this.player.matrixSums[r]
+                }
+                const uniforms = {
+                    x: uniform,
+                    y: uniform
+                }
+                textureBlur(this.gl, this.textFb, this.player.blurTmpFb, this.player.blurredFb, this.webglResources.blur.bufferInfos, uniforms, r)
+                put(this.gl, targetPositions, this.player.blurredFb, null, alpha, srcPos)
             } else {
-                blurred = this.renderedText
+                put(this.gl, targetPositions, this.textFb, null, alpha)
             }
-            //let resize_to = this.curves.size(this.y),
-            //    resized = resize(blurred, blurred.width * resize_to, blurred.height * resize_to)
-            this.ctx.putImageData(blurred, this.canvas.width / 2 - blurred.width / 2, this.y)
-        }
-    }
-    create_blurcache() {
-        for (let i = 0; i <= lyric_line_blur_radius; i++) {
-            this.blurCache[i] = blur(this.renderedText, i)
+
+
         }
     }
 }
@@ -67,48 +137,78 @@ export class LyricPlayer {
         param space: The space between lines
         */
         this.canvas = canvas
-        this.ctx = this.canvas.getContext("2d")
+        this.gl = this.canvas.getContext("webgl")
         this.lyrics_string = lyrics_string
         this.willplay_index = 1
         this.u = u
         this.g = g
-        this.objects = []
+        this.lyricLines = []
         this.h = lyric_height
         this.space = space
         this.playing = false
 
-        let size = resizeCurve.getCurve(this.canvas.height, 1)
-        let r = blurRadiusCurve.getCurve(this.canvas.height, lyric_line_blur_radius)
-
-        this.objects.push(new LyricLine(0, "· · ·", this.space, this.h, this.canvas, 0, { size: size, r: r }))
-        let lines = lyrics_string.split("\n\n")[1].split("\n")
-        let y = this.objects[0].y
-        for (let line_index = 0; line_index < lines.length; line_index++) {
-            let lyric_line_raw = lines[line_index],
-                [time_raw, lyric_line_content] = lyric_line_raw.split(']'),
-                time_string = time_raw.substring(1),
-                [minute_string, second_string] = time_string.split(':'),
-                [minute, second] = [Number(minute_string), Number(second_string)],
-                time = minute * 60 + second
-            y += this.objects[line_index].height + this.space
-            this.objects[line_index + 1] = new LyricLine(time, lyric_line_content, y, this.h, this.canvas, time, {
-                size: size,
-                r: r
-            })
+        const curves = {
+            size: resizeCurve.getCurve(this.canvas.height, 1),
+            r: blurRadiusCurve.getCurve(this.canvas.height, lyric_line_blur_radius),
+            alpha: alphaCurve.getCurve(this.canvas.height, lyric_line_blur_radius)
         }
+
+        const firstLine = new LyricLine(0, "· · ·", this.space, this.h, 0, curves, this)
+        let y = firstLine.y + firstLine.height + this.space
+        this.lyricLines.push(firstLine)
+        let maxHeight = firstLine.height, maxWidth = firstLine.width
+        const lines = lyrics_string.split("\n\n")[1].split("\n")
+        for (let line_index = 0; line_index < lines.length; line_index++) {
+            try {
+                const lyric_line_raw = lines[line_index],
+                    [time_raw, lyric_line_content] = lyric_line_raw.split(']'),
+                    time_string = time_raw.substring(1),
+                    [minute_string, second_string] = time_string.split(':'),
+                    [minute, second] = [Number(minute_string), Number(second_string)],
+                    time = minute * 60 + second
+                for (let i in [lyric_line_raw, time_raw, lyric_line_content, minute_string, second_string]) {
+                    if (i == undefined) {
+                        throw "Invalid lyric line"
+                    }
+                }
+                const newLine = new LyricLine(time, lyric_line_content, y, this.h, time, curves, this)
+                y += newLine.height + this.space
+                this.lyricLines.push(newLine)
+                maxHeight = Math.max(newLine.height, maxHeight); maxWidth = Math.max(newLine.width, maxWidth)
+            } catch (err) {
+            }
+        }
+        this.blurTmpFb = twgl.createFramebufferInfo(this.gl, [{ format: this.gl.RGBA }], maxWidth, maxHeight)
+        this.blurredFb = twgl.createFramebufferInfo(this.gl, [{ format: this.gl.RGBA }], maxWidth, maxHeight)
+
+        this.matrixTextures = []
+        this.matrixSums = []
+        for (let r = 1; r <= lyric_line_blur_radius; r++) {
+            const matrix = getGaussiumWeightMatrix(r)
+            this.matrixTextures[r] = twgl.createTexture(this.gl, {
+                format: this.gl.LUMINANCE,
+                src: matrix.matrix,
+                width: 2 * r + 1
+            })
+            this.matrixSums[r] = matrix.sum
+        }
+        for (let line of this.lyricLines) {
+            line.initWebglResources()
+        }
+
         //TODO: support exittime
     }
 
     move(t, dt) {
         //t: time since started playing, in seconds
         const duration = 0.6
-        const l = this.objects[this.willplay_index]
+        const l = this.lyricLines[this.willplay_index]
         if (t >= l.time - duration) {
-            this.objects[this.willplay_index - 1].state = LineStates.goingHistory
-            const targetMove = this.objects[this.willplay_index - 1].height + this.space,
+            this.lyricLines[this.willplay_index - 1].state = LineStates.goingHistory
+            const targetMove = this.lyricLines[this.willplay_index - 1].height + this.space,
                 player = this, starttime = t
             for (let i = this.willplay_index - 1;
-                i < this.objects.length;
+                i < this.lyricLines.length;
                 i++) {
                 const onScreenIndex = i - (player.willplay_index - 1)
                 const k = 2 * targetMove / (duration ** 2),
@@ -119,42 +219,43 @@ export class LyricPlayer {
                     const xt = t - onScreenIndex * 0.03 - starttime // Time since animation start
                     if (xt > 0 && xt <= duration) {
                         const x = pos(xt) - pos(lastxt)
-                        player.objects[i].y -= x
+                        player.lyricLines[i].y -= x
                         lastxt = xt
                     } else if (xt > duration) {
                         const x = pos(xt) - pos(lastxt)
-                        player.objects[i].y -= x
-                        for (let o = 0; o < player.objects[i].animations.length; o++) {
-                            if (player.objects[i].animations[o] == a) {
-                                delete player.objects[i].animations[o]
+                        player.lyricLines[i].y -= x
+                        for (let o = 0; o < player.lyricLines[i].animations.length; o++) {
+                            if (player.lyricLines[i].animations[o] == a) {
+                                delete player.lyricLines[i].animations[o]
                             }
                         }
-                        if (player.objects[i] == l) l.state = LineStates.current
+                        if (player.lyricLines[i] == l) l.state = LineStates.current
                     }
                     //else if xt<=0: stay still
                 }
                 const b = function (t, dt) {
-                    player.objects[i].y -= targetMove
-                    for (let o = 0; o < player.objects[i].animations.length; o++) {
-                        if (player.objects[i].animations[o] == b) {
-                            delete player.objects[i].animations[o]
+                    player.lyricLines[i].y -= targetMove
+                    for (let o = 0; o < player.lyricLines[i].animations.length; o++) {
+                        if (player.lyricLines[i].animations[o] == b) {
+                            delete player.lyricLines[i].animations[o]
                         }
                     }
                 }
-                player.objects[i].animations.push(a)
+                player.lyricLines[i].animations.push(a)
             }
             this.willplay_index++;
-            if (this.willplay_index >= this.objects.length) this.playing = false
+            if (this.willplay_index >= this.lyricLines.length) this.playing = false
         }
 
-        for (let i = 0; i < this.objects.length; i++) {
-            this.objects[i].move(t, dt)
+        for (let i = 0; i < this.lyricLines.length; i++) {
+            this.lyricLines[i].move(t, dt)
         }
     }
 
     render() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-        for (let i of this.objects) i.render()
+        this.gl.clearColor(0, 0, 0, 0)
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT)
+        for (let i of this.lyricLines) i.render()
     }
 
     play(time = 0) {
@@ -212,22 +313,21 @@ class Curve {
     }
 }
 
-
+//Draw these curves on geogebra.org, and you'll know what are they.
 let resizeCurve = new Curve(function (x) {
-    let a = x - 0.05
-    let b = 20 * a
-    let c = -(b ** 2)
-    let d = 2 ** c
-    let e = 0.1 * d + 0.9
-    return e
+    const a = -0.5 * x ** 2,
+        b = 2 ** a
+    return b
+})
+let alphaCurve = new Curve(function (x) {
+    const a = x ** 2,
+        b = -100 * a,
+        c = 2 ** b
+    return c
 })
 let blurRadiusCurve = new Curve(function (x) {
-    let a = x - 0.1
-    let b = -17 * a
-    let c = -(2 ** b)
-    let d = c + 1
-    let e = Math.max(d, 0)
-    return e
+    const k = 1 / Math.log2(11)
+    return k * Math.log2(10 * x + 1)
 })
 let positionCurve = new Curve(function (x) {
     if (x <= 0) return 0
