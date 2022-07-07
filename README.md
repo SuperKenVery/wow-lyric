@@ -1,6 +1,7 @@
 # Wow-Lyric
 
 ## Introduction
+[Preview video (no sound)](https://user-images.githubusercontent.com/39673849/177709151-f3e54b48-4cb6-4a6b-b4ba-70028b2cd09a.webm)
 
 Gorgeous lyric animation
 
