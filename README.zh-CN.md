@@ -1,7 +1,7 @@
 # Wow-Lyric
 
 ## 简介
-
+[视频预览（无声）](https://user-images.githubusercontent.com/39673849/177709151-f3e54b48-4cb6-4a6b-b4ba-70028b2cd09a.webm)
 华丽的歌词动画
 
 如果用过苹果的音乐app，就会觉得很熟悉。
