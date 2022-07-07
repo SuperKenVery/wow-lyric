@@ -8,12 +8,19 @@
 
 ## 使用
 
+### 快速尝试:
+
+[github.io](https://superkenvery.github.io/wow-lyric/)
+
+[腾讯云](http://my-bucket-1252360629.cos-website.ap-guangzhou.myqcloud.com/)
+
+### 自行搭建此网页:
+
 1. 克隆或者下载此仓库
-2. 用浏览器打开`lyrics.html`
+2. 用浏览器打开 `index.html`
 3. 上传歌曲文件、歌词文件和专辑图文件
-4. 点击`开始 Start`按钮。等一小会，然后就会开始播放动画。
+4. 点击 `开始 Start`按钮
 
 ## 开发
 
 见英文版README
-

@@ -8,10 +8,18 @@ If you've used Apple's Music app, you'll find it familiar.
 
 ## Usage
 
+### Instant try:
+
+[github.io](https://superkenvery.github.io/wow-lyric/)
+
+[tencent cloud (might not me latest)](http://my-bucket-1252360629.cos-website.ap-guangzhou.myqcloud.com/)
+
+### Host the site on your own:
+
 1. Clone or download this repository
-2. Open `lyrics.html` using your browser
+2. Open `index.html` using your browser
 3. Upload the song file, lyric file and album art image file
-4. Click `开始 Start` button. Wait for a little while, and the animation will begin.
+4. Click `开始 Start` button
 
 ## Development
 
