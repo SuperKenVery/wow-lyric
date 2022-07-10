@@ -35,6 +35,7 @@ class LyricLine {
                 attachment: texture
             }
         ], this.renderedTextImageData.width, this.renderedTextImageData.height)
+        twgl.bindFramebufferInfo(this.gl,null)
         const xr = this.width / this.player.blurTmpFb.width, yr = this.height / this.player.blurTmpFb.height //x ratio, y ratio
         const textureCoordinateData = [
             0, 1,
@@ -193,9 +194,6 @@ export class LyricPlayer {
         for (let line of this.lyricLines) {
             line.initWebglResources()
         }
-        //The framebuffer which was created last would be empty
-        //Bug of twgl.js?
-        twgl.createFramebufferInfo(this.gl)
 
         //TODO: support exittime
     }
@@ -245,6 +243,7 @@ export class LyricPlayer {
     }
 
     render() {
+        twgl.bindFramebufferInfo(this.gl,null)
         this.gl.clearColor(0, 0, 0, 0)
         this.gl.clear(this.gl.COLOR_BUFFER_BIT)
         for (let i of this.lyricLines) i.render()
