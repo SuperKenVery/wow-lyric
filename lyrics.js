@@ -35,7 +35,7 @@ class LyricLine {
                 attachment: texture
             }
         ], this.renderedTextImageData.width, this.renderedTextImageData.height)
-        twgl.bindFramebufferInfo(this.gl,null)
+        twgl.bindFramebufferInfo(this.gl, null)
         const xr = this.width / this.player.blurTmpFb.width, yr = this.height / this.player.blurTmpFb.height //x ratio, y ratio
         const textureCoordinateData = [
             0, 1,
@@ -156,7 +156,7 @@ export class LyricPlayer {
         let y = firstLine.y + firstLine.height + this.space
         this.lyricLines.push(firstLine)
         let maxHeight = firstLine.height, maxWidth = firstLine.width
-        const lines = lyrics_string.split("\n\n")[1].split("\n")
+        const lines = lyrics_string.includes("\r\n") ? lyrics_string.split("\r\n") : lyrics_string.split("\n")
         for (let line_index = 0; line_index < lines.length; line_index++) {
             try {
                 const lyric_line_raw = lines[line_index],
@@ -165,8 +165,9 @@ export class LyricPlayer {
                     [minute_string, second_string] = time_string.split(':'),
                     [minute, second] = [Number(minute_string), Number(second_string)],
                     time = minute * 60 + second
-                for (let i of [lyric_line_raw, time_raw, lyric_line_content, minute_string, second_string]) {
-                    if (i == undefined) {
+                for (let i of [lyric_line_raw, time_raw, lyric_line_content, minute_string, second_string, minute, second]) {
+                    //(""==0)==true. Fuck javascript.
+                    if ((typeof (i) == "string" && i == "") || (typeof (i) == "number" && i == NaN)) {
                         throw "Invalid lyric line"
                     }
                 }
@@ -243,7 +244,7 @@ export class LyricPlayer {
     }
 
     render() {
-        twgl.bindFramebufferInfo(this.gl,null)
+        twgl.bindFramebufferInfo(this.gl, null)
         this.gl.clearColor(0, 0, 0, 0)
         this.gl.clear(this.gl.COLOR_BUFFER_BIT)
         for (let i of this.lyricLines) i.render()
