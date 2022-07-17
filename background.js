@@ -297,13 +297,17 @@ export class Background {
             bg.move(t, dt)
             bg.render()
             if (bg.playing) {
-                window.requestAnimationFrame(move_wrapper)
+                //window.requestAnimationFrame(move_wrapper)
             }
         }
-        window.requestAnimationFrame(move_wrapper)
-        /*const fps = 2
+        //window.requestAnimationFrame(move_wrapper)
+
+        //It's not 60 fps on iOS anyway
+        //So the performance is something Apple can't even tackle with
+        //So I'm better off not messing with that
+        const fps = 10
         this.intervalId = setInterval(move_wrapper, 1000 / fps)
-        move_wrapper()*/
+        move_wrapper()
     }
 }
 
